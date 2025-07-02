@@ -12,17 +12,13 @@ import { useEffect, useState } from "react";
 import {
   Alert,
   AppState,
-  Dimensions,
   Platform,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
   View,
 } from "react-native";
-import { PanGestureHandler } from "react-native-gesture-handler";
 import Animated, {
-  runOnJS,
-  useAnimatedGestureHandler,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -68,19 +64,21 @@ export default function HomeScreen() {
   const [error, setError] = useState<string | null>(null);
   const [permissionsGranted, setPermissionsGranted] = useState(false);
 
-  // Animation values for swipe gestures
+  // Animation values for tab switching
   const translateX = useSharedValue(0);
-  const screenWidth = Dimensions.get("window").width;
 
   // Initialize health data service and fetch data
   useEffect(() => {
     // Handle app state changes for permissions
-    const subscription = AppState.addEventListener('change', (nextAppState: string) => {
-      if (nextAppState === 'active' && !permissionsGranted && !loading) {
-        // Re-check permissions when app comes to foreground
-        initializeHealthData();
+    const subscription = AppState.addEventListener(
+      "change",
+      (nextAppState: string) => {
+        if (nextAppState === "active" && !permissionsGranted && !loading) {
+          // Re-check permissions when app comes to foreground
+          initializeHealthData();
+        }
       }
-    });
+    );
 
     initializeHealthData();
 
@@ -98,14 +96,14 @@ export default function HomeScreen() {
       // No need to check explicitly
 
       // Check if we're on Android
-      if (Platform.OS !== 'android') {
-        setError('This app is currently only available for Android devices');
+      if (Platform.OS !== "android") {
+        setError("This app is currently only available for Android devices");
         return;
       }
 
       // Initialize the health data service
       const initialized = await healthDataService.initialize();
-      
+
       // If running in Expo Go, the service will automatically use dummy data
       // and return true, so we can proceed normally
       if (initialized) {
@@ -113,15 +111,15 @@ export default function HomeScreen() {
       } else {
         // Only show error if we're not in Expo Go
         Alert.alert(
-          'Health Connect Setup',
-          'This app requires Health Connect to track your fitness data. The app will use simulated data for now.',
+          "Health Connect Setup",
+          "This app requires Health Connect to track your fitness data. The app will use simulated data for now.",
           [
             {
-              text: 'OK',
+              text: "OK",
               onPress: () => {
                 setPermissionsGranted(true);
-              }
-            }
+              },
+            },
           ]
         );
       }
@@ -130,14 +128,18 @@ export default function HomeScreen() {
       await Promise.all([fetchWeeklyData(), fetchDailyData()]);
     } catch (err) {
       console.error("Failed to initialize health data:", err);
-      
+
       // More user-friendly error handling
-      if (err instanceof Error && err.message.includes('Health Connect')) {
-        setError('Health Connect is not available on this device. Please ensure you have Health Connect installed.');
+      if (err instanceof Error && err.message.includes("Health Connect")) {
+        setError(
+          "Health Connect is not available on this device. Please ensure you have Health Connect installed."
+        );
       } else {
-        setError('Failed to load health data. The app will use simulated data.');
+        setError(
+          "Failed to load health data. The app will use simulated data."
+        );
       }
-      
+
       // Still try to load dummy data
       await Promise.all([fetchWeeklyData(), fetchDailyData()]);
     } finally {
@@ -241,29 +243,6 @@ export default function HomeScreen() {
       fetchWeeklyData();
     }
   };
-
-  const gestureHandler = useAnimatedGestureHandler({
-    onStart: (_, context: any) => {
-      context.startX = translateX.value;
-    },
-    onActive: (event: any, context: any) => {
-      translateX.value = context.startX + event.translationX;
-    },
-    onEnd: (event: any) => {
-      const threshold = screenWidth * 0.3; // 30% of screen width
-
-      if (event.translationX < -threshold && activeTab === "daily") {
-        // Swipe left on daily -> switch to weekly
-        runOnJS(switchToTab)("weekly");
-      } else if (event.translationX > threshold && activeTab === "weekly") {
-        // Swipe right on weekly -> switch to daily
-        runOnJS(switchToTab)("daily");
-      } else {
-        // Return to original position
-        translateX.value = withSpring(0);
-      }
-    },
-  });
 
   const animatedStyle = useAnimatedStyle(() => {
     return {
@@ -466,33 +445,31 @@ export default function HomeScreen() {
       {renderErrorState()}
 
       {!loading && !error && (
-        <PanGestureHandler onGestureEvent={gestureHandler}>
-          <Animated.View style={[styles.content, animatedStyle]}>
-            <ScrollView
-              style={styles.scrollView}
-              contentContainerStyle={styles.scrollContent}
-              showsVerticalScrollIndicator={false}
-            >
-              {renderGoalCard()}
+        <Animated.View style={styles.content}>
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {renderGoalCard()}
 
-              <View style={styles.zonesContainer}>
-                <ThemedText type="subtitle" style={styles.zonesTitle}>
-                  Heart Rate Zones
-                </ThemedText>
-                {currentData.zones.map((zone, index) =>
-                  renderZoneCard(zone as any)
-                )}
-              </View>
+            <View style={styles.zonesContainer}>
+              <ThemedText type="subtitle" style={styles.zonesTitle}>
+                Heart Rate Zones
+              </ThemedText>
+              {currentData.zones.map((zone, index) =>
+                renderZoneCard(zone as any)
+              )}
+            </View>
 
-              <View style={styles.encouragementContainer}>
-                <ThemedText style={styles.encouragementText}>
-                  💪 Keep moving! Every minute in Zone 2+ supports your brain
-                  health.
-                </ThemedText>
-              </View>
-            </ScrollView>
-          </Animated.View>
-        </PanGestureHandler>
+            <View style={styles.encouragementContainer}>
+              <ThemedText style={styles.encouragementText}>
+                💪 Keep moving! Every minute in Zone 2+ supports your brain
+                health.
+              </ThemedText>
+            </View>
+          </ScrollView>
+        </Animated.View>
       )}
     </SafeAreaView>
   );

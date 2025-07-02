@@ -3,7 +3,21 @@ import { ThemedView } from "@/components/ThemedView";
 import { Colors } from "@/constants/Colors";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { useState } from "react";
-import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import {
+  Dimensions,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { PanGestureHandler } from "react-native-gesture-handler";
+import Animated, {
+  runOnJS,
+  useAnimatedGestureHandler,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 // Data models for heart rate zone tracking
@@ -100,6 +114,10 @@ export default function HomeScreen() {
   const colors = Colors[colorScheme ?? "light"];
   const [activeTab, setActiveTab] = useState<TabType>("daily");
 
+  // Animation values for swipe gestures
+  const translateX = useSharedValue(0);
+  const screenWidth = Dimensions.get("window").width;
+
   const currentData = activeTab === "daily" ? dummyDailyData : dummyWeeklyData;
   const goalText =
     activeTab === "daily" ? "Daily Goal: Zone 2+" : "Weekly Goal: Zone 2+";
@@ -107,6 +125,40 @@ export default function HomeScreen() {
     activeTab === "daily"
       ? `${currentData.zone2PlusGoal} minutes of moderate+ activity today`
       : `${currentData.zone2PlusGoal} minutes of moderate+ activity this week`;
+
+  const switchToTab = (tab: TabType) => {
+    setActiveTab(tab);
+    translateX.value = withSpring(0);
+  };
+
+  const gestureHandler = useAnimatedGestureHandler({
+    onStart: (_, context: any) => {
+      context.startX = translateX.value;
+    },
+    onActive: (event, context: any) => {
+      translateX.value = context.startX + event.translationX;
+    },
+    onEnd: (event) => {
+      const threshold = screenWidth * 0.3; // 30% of screen width
+
+      if (event.translationX < -threshold && activeTab === "daily") {
+        // Swipe left on daily -> switch to weekly
+        runOnJS(switchToTab)("weekly");
+      } else if (event.translationX > threshold && activeTab === "weekly") {
+        // Swipe right on weekly -> switch to daily
+        runOnJS(switchToTab)("daily");
+      } else {
+        // Return to original position
+        translateX.value = withSpring(0);
+      }
+    },
+  });
+
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateX: translateX.value }],
+    };
+  });
 
   const renderZoneCard = (zone: HeartRateZone) => {
     const goal = activeTab === "daily" ? zone.dailyGoal : zone.weeklyGoal;
@@ -267,17 +319,21 @@ export default function HomeScreen() {
 
       {renderTabBar()}
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.zonesContainer}>
-          {currentData.zones.map(renderZoneCard)}
-        </View>
+      <PanGestureHandler onGestureEvent={gestureHandler}>
+        <Animated.View style={[styles.swipeContainer, animatedStyle]}>
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.zonesContainer}>
+              {currentData.zones.map(renderZoneCard)}
+            </View>
 
-        {renderGoalCard()}
-      </ScrollView>
+            {renderGoalCard()}
+          </ScrollView>
+        </Animated.View>
+      </PanGestureHandler>
     </SafeAreaView>
   );
 }
@@ -442,5 +498,8 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontStyle: "italic",
     opacity: 0.8,
+  },
+  swipeContainer: {
+    flex: 1,
   },
 });

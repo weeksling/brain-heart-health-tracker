@@ -16,7 +16,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { PanGestureHandler } from "react-native-gesture-handler";
 import Animated, {
   runOnJS,
   useAnimatedGestureHandler,
@@ -207,15 +206,20 @@ export default function HomeScreen() {
       context.startX = translateX.value;
     },
     onActive: (event, context: any) => {
-      translateX.value = context.startX + event.translationX;
+      // Only apply translation if horizontal movement is greater than vertical
+      if (Math.abs(event.translationX) > Math.abs(event.translationY * 1.5)) {
+        translateX.value = context.startX + event.translationX;
+      }
     },
     onEnd: (event) => {
-      const threshold = screenWidth * 0.3; // 30% of screen width
+      const threshold = screenWidth * 0.5; // 50% of screen width (increased from 30%)
+      const velocity = Math.abs(event.velocityX);
 
-      if (event.translationX < -threshold && activeTab === "daily") {
+      // Only trigger swipe if velocity is high enough and translation exceeds threshold
+      if (velocity > 300 && event.translationX < -threshold && activeTab === "daily") {
         // Swipe left on daily -> switch to weekly
         runOnJS(switchToTab)("weekly");
-      } else if (event.translationX > threshold && activeTab === "weekly") {
+      } else if (velocity > 300 && event.translationX > threshold && activeTab === "weekly") {
         // Swipe right on weekly -> switch to daily
         runOnJS(switchToTab)("daily");
       } else {
@@ -426,33 +430,31 @@ export default function HomeScreen() {
       {renderErrorState()}
 
       {!loading && !error && (
-        <PanGestureHandler onGestureEvent={gestureHandler}>
-          <Animated.View style={[styles.content, animatedStyle]}>
-            <ScrollView
-              style={styles.scrollView}
-              contentContainerStyle={styles.scrollContent}
-              showsVerticalScrollIndicator={false}
-            >
-              {renderGoalCard()}
+        <Animated.View style={styles.content}>
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {renderGoalCard()}
 
-              <View style={styles.zonesContainer}>
-                <ThemedText type="subtitle" style={styles.zonesTitle}>
-                  Heart Rate Zones
-                </ThemedText>
-                {currentData.zones.map((zone, index) =>
-                  renderZoneCard(zone as any)
-                )}
-              </View>
+            <View style={styles.zonesContainer}>
+              <ThemedText type="subtitle" style={styles.zonesTitle}>
+                Heart Rate Zones
+              </ThemedText>
+              {currentData.zones.map((zone, index) =>
+                renderZoneCard(zone as any)
+              )}
+            </View>
 
-              <View style={styles.encouragementContainer}>
-                <ThemedText style={styles.encouragementText}>
-                  💪 Keep moving! Every minute in Zone 2+ supports your brain
-                  health.
-                </ThemedText>
-              </View>
-            </ScrollView>
-          </Animated.View>
-        </PanGestureHandler>
+            <View style={styles.encouragementContainer}>
+              <ThemedText style={styles.encouragementText}>
+                💪 Keep moving! Every minute in Zone 2+ supports your brain
+                health.
+              </ThemedText>
+            </View>
+          </ScrollView>
+        </Animated.View>
       )}
     </SafeAreaView>
   );

@@ -12,7 +12,6 @@ import { useEffect, useState } from "react";
 import {
   Alert,
   AppState,
-  Dimensions,
   Platform,
   ScrollView,
   StyleSheet,
@@ -20,8 +19,6 @@ import {
   View,
 } from "react-native";
 import Animated, {
-  runOnJS,
-  useAnimatedGestureHandler,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -67,9 +64,8 @@ export default function HomeScreen() {
   const [error, setError] = useState<string | null>(null);
   const [permissionsGranted, setPermissionsGranted] = useState(false);
 
-  // Animation values for swipe gestures
+  // Animation values for tab switching
   const translateX = useSharedValue(0);
-  const screenWidth = Dimensions.get("window").width;
 
   // Initialize health data service and fetch data
   useEffect(() => {
@@ -247,50 +243,6 @@ export default function HomeScreen() {
       fetchWeeklyData();
     }
   };
-
-  // Gesture handling constants
-  const VERTICAL_SENSITIVITY_RATIO = 1.5; // Multiplier for vertical movement sensitivity
-  const SWIPE_THRESHOLD_RATIO = 0.5; // 50% of screen width for swipe threshold
-  const SWIPE_MIN_VELOCITY = 300; // Minimum velocity required for swipe gesture
-
-  const gestureHandler = useAnimatedGestureHandler({
-    onStart: (_, context: any) => {
-      context.startX = translateX.value;
-    },
-    onActive: (event, context: any) => {
-      // Only apply translation if horizontal movement is greater than vertical
-      if (
-        Math.abs(event.translationX) >
-        Math.abs(event.translationY * VERTICAL_SENSITIVITY_RATIO)
-      ) {
-        translateX.value = context.startX + event.translationX;
-      }
-    },
-    onEnd: (event) => {
-      const threshold = screenWidth * SWIPE_THRESHOLD_RATIO;
-      const velocity = Math.abs(event.velocityX);
-
-      // Only trigger swipe if velocity is high enough and translation exceeds threshold
-      if (
-        velocity > SWIPE_MIN_VELOCITY &&
-        event.translationX < -threshold &&
-        activeTab === "daily"
-      ) {
-        // Swipe left on daily -> switch to weekly
-        runOnJS(switchToTab)("weekly");
-      } else if (
-        velocity > SWIPE_MIN_VELOCITY &&
-        event.translationX > threshold &&
-        activeTab === "weekly"
-      ) {
-        // Swipe right on weekly -> switch to daily
-        runOnJS(switchToTab)("daily");
-      } else {
-        // Return to original position
-        translateX.value = withSpring(0);
-      }
-    },
-  });
 
   const animatedStyle = useAnimatedStyle(() => {
     return {

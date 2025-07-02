@@ -10,7 +10,10 @@ import {
 } from "@/services/HealthDataService";
 import { useEffect, useState } from "react";
 import {
+  Alert,
+  AppState,
   Dimensions,
+  Platform,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -63,6 +66,7 @@ export default function HomeScreen() {
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [permissionsGranted, setPermissionsGranted] = useState(false);
 
   // Animation values for swipe gestures
   const translateX = useSharedValue(0);
@@ -70,7 +74,19 @@ export default function HomeScreen() {
 
   // Initialize health data service and fetch data
   useEffect(() => {
+    // Handle app state changes for permissions
+    const subscription = AppState.addEventListener('change', (nextAppState: string) => {
+      if (nextAppState === 'active' && !permissionsGranted && !loading) {
+        // Re-check permissions when app comes to foreground
+        initializeHealthData();
+      }
+    });
+
     initializeHealthData();
+
+    return () => {
+      subscription.remove();
+    };
   }, []);
 
   const initializeHealthData = async () => {
@@ -78,17 +94,35 @@ export default function HomeScreen() {
       setLoading(true);
       setError(null);
 
-      // Initialize the health data service
-      const initialized = await healthDataService.initialize();
-      if (!initialized) {
-        throw new Error("Failed to initialize health data service");
+      // In Expo Go, Health Connect initialization will fail gracefully
+      // No need to check explicitly
+
+      // Check if we're on Android
+      if (Platform.OS !== 'android') {
+        setError('This app is currently only available for Android devices');
+        return;
       }
 
-      // Check permissions
-      const permissions = await healthDataService.getPermissionStatus();
-      if (!permissions.healthConnect) {
-        console.warn(
-          "Health Connect permissions not granted, using dummy data"
+      // Initialize the health data service
+      const initialized = await healthDataService.initialize();
+      
+      // If running in Expo Go, the service will automatically use dummy data
+      // and return true, so we can proceed normally
+      if (initialized) {
+        setPermissionsGranted(true);
+      } else {
+        // Only show error if we're not in Expo Go
+        Alert.alert(
+          'Health Connect Setup',
+          'This app requires Health Connect to track your fitness data. The app will use simulated data for now.',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                setPermissionsGranted(true);
+              }
+            }
+          ]
         );
       }
 
@@ -96,10 +130,16 @@ export default function HomeScreen() {
       await Promise.all([fetchWeeklyData(), fetchDailyData()]);
     } catch (err) {
       console.error("Failed to initialize health data:", err);
-      setError(
-        err instanceof Error ? err.message : "Failed to load health data"
-      );
-      // Still allow the app to work with dummy data
+      
+      // More user-friendly error handling
+      if (err instanceof Error && err.message.includes('Health Connect')) {
+        setError('Health Connect is not available on this device. Please ensure you have Health Connect installed.');
+      } else {
+        setError('Failed to load health data. The app will use simulated data.');
+      }
+      
+      // Still try to load dummy data
+      await Promise.all([fetchWeeklyData(), fetchDailyData()]);
     } finally {
       setLoading(false);
     }
@@ -206,10 +246,10 @@ export default function HomeScreen() {
     onStart: (_, context: any) => {
       context.startX = translateX.value;
     },
-    onActive: (event, context: any) => {
+    onActive: (event: any, context: any) => {
       translateX.value = context.startX + event.translationX;
     },
-    onEnd: (event) => {
+    onEnd: (event: any) => {
       const threshold = screenWidth * 0.3; // 30% of screen width
 
       if (event.translationX < -threshold && activeTab === "daily") {

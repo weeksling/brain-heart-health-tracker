@@ -168,6 +168,17 @@ export class HealthDataService {
         return false;
       }
 
+      // Check if running in Expo Go by trying to access Health Connect
+      // In Expo Go, the Health Connect SDK won't be available
+      try {
+        const sdkStatus = await getSdkStatus();
+        console.log("HealthDataService: Health Connect SDK status check:", sdkStatus);
+      } catch (error) {
+        console.log("HealthDataService: Running in Expo Go or Health Connect not available, using dummy data");
+        this.isInitialized = true;
+        return true;
+      }
+
       // Initialize Health Connect
       const healthConnectAvailable = await this.initializeHealthConnect();
 
@@ -198,10 +209,13 @@ export class HealthDataService {
     try {
       // Check if Health Connect is available
       const sdkStatus = await getSdkStatus();
+      
+      console.log("HealthDataService: Health Connect SDK status:", sdkStatus);
+      
       if (sdkStatus !== 3) {
         // SDK_AVAILABLE = 3
         console.warn(
-          "HealthDataService: Health Connect not available on this device"
+          "HealthDataService: Health Connect not available on this device. Status:", sdkStatus
         );
         return false;
       }
@@ -213,7 +227,9 @@ export class HealthDataService {
         return false;
       }
 
-      // Request permissions
+      // Request permissions with a delay to ensure UI is ready
+      await new Promise<void>((resolve) => setTimeout(resolve, 1000));
+      
       const permissionsGranted = await this.requestHealthConnectPermissions();
 
       if (permissionsGranted) {

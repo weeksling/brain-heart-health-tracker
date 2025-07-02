@@ -74,12 +74,15 @@ export default function HomeScreen() {
   // Initialize health data service and fetch data
   useEffect(() => {
     // Handle app state changes for permissions
-    const subscription = AppState.addEventListener('change', (nextAppState: string) => {
-      if (nextAppState === 'active' && !permissionsGranted && !loading) {
-        // Re-check permissions when app comes to foreground
-        initializeHealthData();
+    const subscription = AppState.addEventListener(
+      "change",
+      (nextAppState: string) => {
+        if (nextAppState === "active" && !permissionsGranted && !loading) {
+          // Re-check permissions when app comes to foreground
+          initializeHealthData();
+        }
       }
-    });
+    );
 
     initializeHealthData();
 
@@ -97,14 +100,14 @@ export default function HomeScreen() {
       // No need to check explicitly
 
       // Check if we're on Android
-      if (Platform.OS !== 'android') {
-        setError('This app is currently only available for Android devices');
+      if (Platform.OS !== "android") {
+        setError("This app is currently only available for Android devices");
         return;
       }
 
       // Initialize the health data service
       const initialized = await healthDataService.initialize();
-      
+
       // If running in Expo Go, the service will automatically use dummy data
       // and return true, so we can proceed normally
       if (initialized) {
@@ -112,15 +115,15 @@ export default function HomeScreen() {
       } else {
         // Only show error if we're not in Expo Go
         Alert.alert(
-          'Health Connect Setup',
-          'This app requires Health Connect to track your fitness data. The app will use simulated data for now.',
+          "Health Connect Setup",
+          "This app requires Health Connect to track your fitness data. The app will use simulated data for now.",
           [
             {
-              text: 'OK',
+              text: "OK",
               onPress: () => {
                 setPermissionsGranted(true);
-              }
-            }
+              },
+            },
           ]
         );
       }
@@ -129,14 +132,18 @@ export default function HomeScreen() {
       await Promise.all([fetchWeeklyData(), fetchDailyData()]);
     } catch (err) {
       console.error("Failed to initialize health data:", err);
-      
+
       // More user-friendly error handling
-      if (err instanceof Error && err.message.includes('Health Connect')) {
-        setError('Health Connect is not available on this device. Please ensure you have Health Connect installed.');
+      if (err instanceof Error && err.message.includes("Health Connect")) {
+        setError(
+          "Health Connect is not available on this device. Please ensure you have Health Connect installed."
+        );
       } else {
-        setError('Failed to load health data. The app will use simulated data.');
+        setError(
+          "Failed to load health data. The app will use simulated data."
+        );
       }
-      
+
       // Still try to load dummy data
       await Promise.all([fetchWeeklyData(), fetchDailyData()]);
     } finally {
@@ -241,25 +248,41 @@ export default function HomeScreen() {
     }
   };
 
+  // Gesture handling constants
+  const VERTICAL_SENSITIVITY_RATIO = 1.5; // Multiplier for vertical movement sensitivity
+  const SWIPE_THRESHOLD_RATIO = 0.5; // 50% of screen width for swipe threshold
+  const SWIPE_MIN_VELOCITY = 300; // Minimum velocity required for swipe gesture
+
   const gestureHandler = useAnimatedGestureHandler({
     onStart: (_, context: any) => {
       context.startX = translateX.value;
     },
     onActive: (event, context: any) => {
       // Only apply translation if horizontal movement is greater than vertical
-      if (Math.abs(event.translationX) > Math.abs(event.translationY * 1.5)) {
+      if (
+        Math.abs(event.translationX) >
+        Math.abs(event.translationY * VERTICAL_SENSITIVITY_RATIO)
+      ) {
         translateX.value = context.startX + event.translationX;
       }
     },
     onEnd: (event) => {
-      const threshold = screenWidth * 0.5; // 50% of screen width (increased from 30%)
+      const threshold = screenWidth * SWIPE_THRESHOLD_RATIO;
       const velocity = Math.abs(event.velocityX);
 
       // Only trigger swipe if velocity is high enough and translation exceeds threshold
-      if (velocity > 300 && event.translationX < -threshold && activeTab === "daily") {
+      if (
+        velocity > SWIPE_MIN_VELOCITY &&
+        event.translationX < -threshold &&
+        activeTab === "daily"
+      ) {
         // Swipe left on daily -> switch to weekly
         runOnJS(switchToTab)("weekly");
-      } else if (velocity > 300 && event.translationX > threshold && activeTab === "weekly") {
+      } else if (
+        velocity > SWIPE_MIN_VELOCITY &&
+        event.translationX > threshold &&
+        activeTab === "weekly"
+      ) {
         // Swipe right on weekly -> switch to daily
         runOnJS(switchToTab)("daily");
       } else {

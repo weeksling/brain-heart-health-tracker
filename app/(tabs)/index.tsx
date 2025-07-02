@@ -2,7 +2,13 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Colors } from "@/constants/Colors";
 import { useColorScheme } from "@/hooks/useColorScheme";
-import { useState } from "react";
+import {
+  DailyHeartRateSummary,
+  healthDataService,
+  HeartRateZone,
+  WeeklyHeartRateSummary,
+} from "@/services/HealthDataService";
+import { useEffect, useState } from "react";
 import {
   Dimensions,
   ScrollView,
@@ -21,90 +27,26 @@ import Animated, {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 // Data models for heart rate zone tracking
-interface HeartRateZone {
-  id: string;
-  name: string;
-  description: string;
-  color: string;
-  minutes: number;
-  weeklyGoal: number;
-  dailyGoal: number;
-}
-
 interface ProgressData {
   zones: HeartRateZone[];
   totalZone2PlusMinutes: number;
   zone2PlusGoal: number; // Primary goal: 150 min of zone 2+
 }
 
-// TODO: Replace with real health data from Health Connect/Google Fit
-// This would be aggregated from heart rate data over the current week/day
-const dummyWeeklyData: ProgressData = {
-  zones: [
-    {
-      id: "zone1",
-      name: "Zone 1",
-      description: "Recovery",
-      color: "#81C784", // Soft green
-      minutes: 120,
-      weeklyGoal: 150,
-      dailyGoal: 20,
-    },
-    {
-      id: "zone2",
-      name: "Zone 2",
-      description: "Aerobic Base",
-      color: "#64B5F6", // Soft blue
-      minutes: 60,
-      weeklyGoal: 150,
-      dailyGoal: 25,
-    },
-    {
-      id: "zone3",
-      name: "Zone 3",
-      description: "Tempo",
-      color: "#FFB74D", // Soft orange
-      minutes: 10,
-      weeklyGoal: 30,
-      dailyGoal: 5,
-    },
-  ],
-  totalZone2PlusMinutes: 70, // Zone 2 + Zone 3
-  zone2PlusGoal: 150, // Science-based goal from "Spark"
-};
-
-const dummyDailyData: ProgressData = {
-  zones: [
-    {
-      id: "zone1",
-      name: "Zone 1",
-      description: "Recovery",
-      color: "#81C784", // Soft green
-      minutes: 15,
-      weeklyGoal: 150,
-      dailyGoal: 20,
-    },
-    {
-      id: "zone2",
-      name: "Zone 2",
-      description: "Aerobic Base",
-      color: "#64B5F6", // Soft blue
-      minutes: 8,
-      weeklyGoal: 150,
-      dailyGoal: 25,
-    },
-    {
-      id: "zone3",
-      name: "Zone 3",
-      description: "Tempo",
-      color: "#FFB74D", // Soft orange
-      minutes: 2,
-      weeklyGoal: 30,
-      dailyGoal: 5,
-    },
-  ],
-  totalZone2PlusMinutes: 10, // Zone 2 + Zone 3
-  zone2PlusGoal: 30, // Daily goal: 30 min of zone 2+
+// Default goals based on "Spark" research
+const DEFAULT_GOALS = {
+  weekly: {
+    zone1: 150,
+    zone2: 150,
+    zone3: 30,
+    zone2Plus: 150, // Zone 2 + Zone 3
+  },
+  daily: {
+    zone1: 20,
+    zone2: 25,
+    zone3: 5,
+    zone2Plus: 30, // Zone 2 + Zone 3
+  },
 };
 
 type TabType = "daily" | "weekly";
@@ -113,12 +55,134 @@ export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "light"];
   const [activeTab, setActiveTab] = useState<TabType>("daily");
+  const [weeklyData, setWeeklyData] = useState<WeeklyHeartRateSummary | null>(
+    null
+  );
+  const [dailyData, setDailyData] = useState<DailyHeartRateSummary | null>(
+    null
+  );
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Animation values for swipe gestures
   const translateX = useSharedValue(0);
   const screenWidth = Dimensions.get("window").width;
 
-  const currentData = activeTab === "daily" ? dummyDailyData : dummyWeeklyData;
+  // Initialize health data service and fetch data
+  useEffect(() => {
+    initializeHealthData();
+  }, []);
+
+  const initializeHealthData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Initialize the health data service
+      const initialized = await healthDataService.initialize();
+      if (!initialized) {
+        throw new Error("Failed to initialize health data service");
+      }
+
+      // Check permissions
+      const permissions = await healthDataService.getPermissionStatus();
+      if (!permissions.healthConnect) {
+        console.warn(
+          "Health Connect permissions not granted, using dummy data"
+        );
+      }
+
+      // Fetch initial data
+      await Promise.all([fetchWeeklyData(), fetchDailyData()]);
+    } catch (err) {
+      console.error("Failed to initialize health data:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to load health data"
+      );
+      // Still allow the app to work with dummy data
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchWeeklyData = async () => {
+    try {
+      const data = await healthDataService.getWeeklyHeartRateData();
+      setWeeklyData(data);
+    } catch (err) {
+      console.error("Failed to fetch weekly data:", err);
+      // Keep existing data if available
+    }
+  };
+
+  const fetchDailyData = async () => {
+    try {
+      const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD format
+      const data = await healthDataService.getDailyHeartRateData(today);
+      setDailyData(data);
+    } catch (err) {
+      console.error("Failed to fetch daily data:", err);
+      // Keep existing data if available
+    }
+  };
+
+  // Convert health data to UI format
+  const convertToProgressData = (
+    summary: WeeklyHeartRateSummary | DailyHeartRateSummary,
+    isDaily: boolean
+  ): ProgressData => {
+    const zones = healthDataService.getHeartRateZones();
+    const goals = isDaily ? DEFAULT_GOALS.daily : DEFAULT_GOALS.weekly;
+
+    const progressZones = zones.map((zone) => ({
+      ...zone,
+      minutes: summary.zoneBreakdown[zone.id] || 0,
+      weeklyGoal: goals[zone.id as keyof typeof goals] || 0,
+      dailyGoal:
+        DEFAULT_GOALS.daily[zone.id as keyof typeof DEFAULT_GOALS.daily] || 0,
+    }));
+
+    const totalZone2PlusMinutes =
+      (summary.zoneBreakdown.zone2 || 0) + (summary.zoneBreakdown.zone3 || 0);
+
+    return {
+      zones: progressZones,
+      totalZone2PlusMinutes,
+      zone2PlusGoal: goals.zone2Plus,
+    };
+  };
+
+  // Get current data based on active tab
+  const getCurrentData = (): ProgressData => {
+    if (activeTab === "daily") {
+      if (dailyData) {
+        return convertToProgressData(dailyData, true);
+      }
+    } else {
+      if (weeklyData) {
+        return convertToProgressData(weeklyData, false);
+      }
+    }
+
+    // Fallback to empty data if no real data available
+    const zones = healthDataService.getHeartRateZones();
+    const goals =
+      activeTab === "daily" ? DEFAULT_GOALS.daily : DEFAULT_GOALS.weekly;
+
+    return {
+      zones: zones.map((zone) => ({
+        ...zone,
+        minutes: 0,
+        weeklyGoal: goals[zone.id as keyof typeof goals] || 0,
+        dailyGoal:
+          DEFAULT_GOALS.daily[zone.id as keyof typeof DEFAULT_GOALS.daily] || 0,
+      })),
+      totalZone2PlusMinutes: 0,
+      zone2PlusGoal: goals.zone2Plus,
+    };
+  };
+
+  const currentData = getCurrentData();
   const goalText =
     activeTab === "daily" ? "Daily Goal: Zone 2+" : "Weekly Goal: Zone 2+";
   const goalDescription =
@@ -129,6 +193,13 @@ export default function HomeScreen() {
   const switchToTab = (tab: TabType) => {
     setActiveTab(tab);
     translateX.value = withSpring(0);
+
+    // Refresh data when switching tabs
+    if (tab === "daily") {
+      fetchDailyData();
+    } else {
+      fetchWeeklyData();
+    }
   };
 
   const gestureHandler = useAnimatedGestureHandler({
@@ -160,7 +231,13 @@ export default function HomeScreen() {
     };
   });
 
-  const renderZoneCard = (zone: HeartRateZone) => {
+  const renderZoneCard = (
+    zone: HeartRateZone & {
+      minutes: number;
+      weeklyGoal: number;
+      dailyGoal: number;
+    }
+  ) => {
     const goal = activeTab === "daily" ? zone.dailyGoal : zone.weeklyGoal;
     const progressPercentage = Math.min((zone.minutes / goal) * 100, 100);
 
@@ -203,9 +280,7 @@ export default function HomeScreen() {
               ]}
             />
           </View>
-          <ThemedText style={styles.progressText}>
-            {zone.minutes}/{goal} min
-          </ThemedText>
+          <ThemedText style={styles.goalText}>Goal: {goal} min</ThemedText>
         </View>
       </ThemedView>
     );
@@ -219,34 +294,34 @@ export default function HomeScreen() {
 
     return (
       <ThemedView style={styles.goalCard}>
-        <ThemedText type="subtitle" style={styles.goalTitle}>
-          {goalText}
-        </ThemedText>
-        <ThemedText style={styles.goalDescription}>
-          {goalDescription}
-        </ThemedText>
+        <View style={styles.goalHeader}>
+          <ThemedText type="title" style={styles.goalTitle}>
+            {goalText}
+          </ThemedText>
+          <ThemedText style={styles.goalDescription}>
+            {goalDescription}
+          </ThemedText>
+        </View>
 
-        <View style={styles.goalProgressContainer}>
-          <View style={styles.goalProgressHeader}>
-            <ThemedText type="title" style={styles.goalProgressNumber}>
+        <View style={styles.goalProgress}>
+          <View style={styles.goalMinutes}>
+            <ThemedText
+              type="title"
+              style={[styles.goalMinutesText, { color: colors.tint }]}
+            >
               {currentData.totalZone2PlusMinutes}
             </ThemedText>
-            <ThemedText style={styles.goalProgressLabel}>
+            <ThemedText style={styles.goalMinutesLabel}>
               / {currentData.zone2PlusGoal} min
             </ThemedText>
           </View>
 
-          <View
-            style={[
-              styles.progressBar,
-              { backgroundColor: colors.icon + "15" },
-            ]}
-          >
+          <View style={styles.goalProgressBar}>
             <View
               style={[
-                styles.progressFill,
+                styles.goalProgressFill,
                 {
-                  backgroundColor: "#64B5F6", // Zone 2 blue
+                  backgroundColor: colors.tint,
                   width: `${progressPercentage}%`,
                 },
               ]}
@@ -254,13 +329,13 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <ThemedText style={styles.encouragement}>
-          {progressPercentage >= 100
-            ? `Excellent! You've hit your brain health goal this ${
-                activeTab === "daily" ? "day" : "week"
-              }.`
-            : `You're building a strong foundation for brain health and recovery.`}
-        </ThemedText>
+        {progressPercentage >= 100 && (
+          <View style={styles.achievementBadge}>
+            <ThemedText style={styles.achievementText}>
+              🎉 Goal Achieved!
+            </ThemedText>
+          </View>
+        )}
       </ThemedView>
     );
   };
@@ -273,7 +348,7 @@ export default function HomeScreen() {
             styles.tabButton,
             activeTab === "daily" && styles.activeTabButton,
           ]}
-          onPress={() => setActiveTab("daily")}
+          onPress={() => switchToTab("daily")}
         >
           <ThemedText
             style={[
@@ -289,7 +364,7 @@ export default function HomeScreen() {
             styles.tabButton,
             activeTab === "weekly" && styles.activeTabButton,
           ]}
-          onPress={() => setActiveTab("weekly")}
+          onPress={() => switchToTab("weekly")}
         >
           <ThemedText
             style={[
@@ -304,42 +379,87 @@ export default function HomeScreen() {
     );
   };
 
+  const renderErrorState = () => {
+    if (!error) return null;
+
+    return (
+      <ThemedView style={styles.errorContainer}>
+        <ThemedText style={styles.errorText}>{error}</ThemedText>
+        <TouchableOpacity
+          style={styles.retryButton}
+          onPress={initializeHealthData}
+        >
+          <ThemedText style={styles.retryButtonText}>Retry</ThemedText>
+        </TouchableOpacity>
+      </ThemedView>
+    );
+  };
+
+  const renderLoadingState = () => {
+    if (!loading) return null;
+
+    return (
+      <ThemedView style={styles.loadingContainer}>
+        <ThemedText style={styles.loadingText}>
+          Loading health data...
+        </ThemedText>
+      </ThemedView>
+    );
+  };
+
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+    >
       <View style={styles.header}>
         <ThemedText type="title" style={styles.title}>
-          Brain Health Tracker
+          Brain Heart Fitness
         </ThemedText>
         <ThemedText style={styles.subtitle}>
-          {activeTab === "daily"
-            ? "Today's heart rate zones"
-            : "This week's heart rate zones"}
+          Track your heart rate zones for optimal brain health
         </ThemedText>
       </View>
 
       {renderTabBar()}
 
-      <PanGestureHandler onGestureEvent={gestureHandler}>
-        <Animated.View style={[styles.swipeContainer, animatedStyle]}>
-          <ScrollView
-            style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.zonesContainer}>
-              {currentData.zones.map(renderZoneCard)}
-            </View>
+      {renderLoadingState()}
+      {renderErrorState()}
 
-            {renderGoalCard()}
-          </ScrollView>
-        </Animated.View>
-      </PanGestureHandler>
+      {!loading && !error && (
+        <PanGestureHandler onGestureEvent={gestureHandler}>
+          <Animated.View style={[styles.content, animatedStyle]}>
+            <ScrollView
+              style={styles.scrollView}
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {renderGoalCard()}
+
+              <View style={styles.zonesContainer}>
+                <ThemedText type="subtitle" style={styles.zonesTitle}>
+                  Heart Rate Zones
+                </ThemedText>
+                {currentData.zones.map((zone, index) =>
+                  renderZoneCard(zone as any)
+                )}
+              </View>
+
+              <View style={styles.encouragementContainer}>
+                <ThemedText style={styles.encouragementText}>
+                  💪 Keep moving! Every minute in Zone 2+ supports your brain
+                  health.
+                </ThemedText>
+              </View>
+            </ScrollView>
+          </Animated.View>
+        </PanGestureHandler>
+      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
   },
   header: {
@@ -400,6 +520,11 @@ const styles = StyleSheet.create({
     gap: 16,
     marginBottom: 24,
   },
+  zonesTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
   zoneCard: {
     padding: 20,
     borderRadius: 16,
@@ -450,7 +575,7 @@ const styles = StyleSheet.create({
     height: "100%",
     borderRadius: 4,
   },
-  progressText: {
+  goalText: {
     fontSize: 12,
     opacity: 0.7,
     textAlign: "right",
@@ -464,6 +589,9 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
+  goalHeader: {
+    marginBottom: 16,
+  },
   goalTitle: {
     fontSize: 18,
     fontWeight: "600",
@@ -474,32 +602,92 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     marginBottom: 16,
   },
-  goalProgressContainer: {
+  goalProgress: {
     gap: 12,
     marginBottom: 16,
   },
-  goalProgressHeader: {
+  goalMinutes: {
     flexDirection: "row",
     alignItems: "baseline",
     justifyContent: "center",
   },
-  goalProgressNumber: {
+  goalMinutesText: {
     fontSize: 36,
     fontWeight: "bold",
     color: "#64B5F6",
   },
-  goalProgressLabel: {
+  goalMinutesLabel: {
     fontSize: 16,
     opacity: 0.7,
     marginLeft: 4,
   },
-  encouragement: {
-    fontSize: 14,
-    textAlign: "center",
-    fontStyle: "italic",
-    opacity: 0.8,
+  goalProgressBar: {
+    height: 8,
+    borderRadius: 4,
+    overflow: "hidden",
   },
-  swipeContainer: {
+  goalProgressFill: {
+    height: "100%",
+    borderRadius: 4,
+  },
+  achievementBadge: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: "#64B5F6",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  achievementText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#fff",
+  },
+  encouragementContainer: {
+    padding: 20,
+    borderRadius: 16,
+    backgroundColor: "#f5f5f5",
+    alignItems: "center",
+  },
+  encouragementText: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#333",
+  },
+  errorContainer: {
+    padding: 20,
+    borderRadius: 16,
+    backgroundColor: "#fff",
+    alignItems: "center",
+  },
+  errorText: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#333",
+    marginBottom: 20,
+  },
+  retryButton: {
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: "#64B5F6",
+    alignItems: "center",
+  },
+  retryButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#fff",
+  },
+  loadingContainer: {
+    padding: 20,
+    borderRadius: 16,
+    backgroundColor: "#fff",
+    alignItems: "center",
+  },
+  loadingText: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#333",
+  },
+  content: {
     flex: 1,
   },
 });

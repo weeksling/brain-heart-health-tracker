@@ -136,15 +136,32 @@ export default function HomeScreen() {
       context.startX = translateX.value;
     },
     onActive: (event, context: any) => {
-      translateX.value = context.startX + event.translationX;
+      // Only track horizontal movements that are significant
+      if (Math.abs(event.translationX) > Math.abs(event.translationY)) {
+        translateX.value = context.startX + event.translationX;
+      }
     },
     onEnd: (event) => {
-      const threshold = screenWidth * 0.3; // 30% of screen width
-
-      if (event.translationX < -threshold && activeTab === "daily") {
+      const threshold = screenWidth * 0.4; // Increased from 30% to 40%
+      const minDistance = 50; // Minimum distance in pixels to trigger tab switch
+      
+      // Check if the swipe was horizontal enough
+      const isHorizontalSwipe = Math.abs(event.translationX) > Math.abs(event.translationY) * 2;
+      
+      if (
+        isHorizontalSwipe &&
+        Math.abs(event.translationX) > minDistance &&
+        event.translationX < -threshold &&
+        activeTab === "daily"
+      ) {
         // Swipe left on daily -> switch to weekly
         runOnJS(switchToTab)("weekly");
-      } else if (event.translationX > threshold && activeTab === "weekly") {
+      } else if (
+        isHorizontalSwipe &&
+        Math.abs(event.translationX) > minDistance &&
+        event.translationX > threshold &&
+        activeTab === "weekly"
+      ) {
         // Swipe right on weekly -> switch to daily
         runOnJS(switchToTab)("daily");
       } else {
@@ -319,7 +336,12 @@ export default function HomeScreen() {
 
       {renderTabBar()}
 
-      <PanGestureHandler onGestureEvent={gestureHandler}>
+      <PanGestureHandler 
+        onGestureEvent={gestureHandler}
+        activeOffsetX={[-50, 50]} // Minimum horizontal movement to activate
+        failOffsetY={[-10, 10]} // Cancel if vertical movement is too much
+        shouldCancelWhenOutside={false}
+      >
         <Animated.View style={[styles.swipeContainer, animatedStyle]}>
           <ScrollView
             style={styles.scrollView}

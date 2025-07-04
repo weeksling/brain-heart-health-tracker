@@ -50,7 +50,7 @@
         {
           "permissions": [
             "android.permission.health.READ_HEART_RATE",
-            "android.permission.health.READ_STEPS", 
+            "android.permission.health.READ_STEPS",
             "android.permission.health.READ_EXERCISE"
           ]
         }
@@ -58,6 +58,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "0eaa45b9-1207-4da1-96e0-5c9db4524ba9"
+      }
     }
   }
 }

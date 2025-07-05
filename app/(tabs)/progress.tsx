@@ -275,7 +275,7 @@ export default function ProgressScreen() {
           const isToday = new Date(day.date).toDateString() === new Date().toDateString();
           
           return (
-            <View key={index} style={styles.dayRow}>
+            <View key={day.date} style={styles.dayRow}>
               <View style={styles.dayInfo}>
                 <ThemedText style={[
                   styles.dayName,

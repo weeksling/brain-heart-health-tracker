@@ -36,7 +36,8 @@
         "android.permission.health.READ_EXERCISE"
       ],
       "minSdkVersion": 26,
-      "targetSdkVersion": 34
+      "targetSdkVersion": 34,
+      "compileSdkVersion": 31
     },
     "web": {
       "bundler": "metro",

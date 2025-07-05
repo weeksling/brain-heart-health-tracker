@@ -3,17 +3,17 @@ import { ThemedView } from "@/components/ThemedView";
 import { Colors } from "@/constants/Colors";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import {
-    healthDataService,
-    WeeklyHeartRateSummary,
+  healthDataService,
+  WeeklyHeartRateSummary,
 } from "@/services/HealthDataService";
 import { useEffect, useState } from "react";
 import {
-    Dimensions,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View
+  Dimensions,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from "react-native";
 import { LineChart } from "react-native-chart-kit";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -89,7 +89,6 @@ export default function ProgressScreen() {
     const weekStart = new Date(today);
     weekStart.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
     
-    const dailyData: DailyProgress[] = [];
     const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
     const promises = Array.from({ length: 7 }, (_, i) => {
@@ -119,8 +118,6 @@ export default function ProgressScreen() {
     });
     
     const dailyData = await Promise.all(promises);
-    return dailyData;
-
     return dailyData;
   };
 

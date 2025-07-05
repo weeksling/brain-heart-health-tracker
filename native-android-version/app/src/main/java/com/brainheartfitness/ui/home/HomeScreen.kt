@@ -6,6 +6,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.brainheartfitness.R
+import com.brainheartfitness.data.DataSourceType
 import com.brainheartfitness.data.health.HealthConnectManager
 import com.brainheartfitness.data.model.HealthConnectState
 import com.brainheartfitness.data.model.TimeRange
@@ -30,12 +33,8 @@ fun HomeScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     
-    // Health Connect permission launcher
-    val healthConnectManager: HealthConnectManager = hiltViewModel<HomeViewModel>().let {
-        // Access the health connect manager through dependency injection
-        // This is a simplified approach - in real implementation you'd inject this properly
-        androidx.compose.runtime.remember { HealthConnectManager(context) }
-    }
+    // Get the HealthConnectManager from the ViewModel (which is injected by Hilt)
+    val healthConnectManager = viewModel.getHealthConnectManager()
     
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = healthConnectManager.createPermissionRequestContract()
@@ -66,6 +65,17 @@ fun HomeScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 16.dp)
         )
+        
+        // Data Source Toggle and Status
+        DataSourceCard(
+            dataSourceType = uiState.dataSourceType,
+            dataSourceError = uiState.dataSourceError,
+            isRealDataAvailable = uiState.isRealDataAvailable,
+            onToggleDataSource = viewModel::toggleDataSource,
+            onSetDataSource = viewModel::setDataSource
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
         
         // Tab Bar
         TabRow(
@@ -141,6 +151,94 @@ fun HomeScreen(
             }
             HealthConnectState.NOT_SUPPORTED -> {
                 NotSupportedCard()
+            }
+        }
+    }
+}
+
+@Composable
+fun DataSourceCard(
+    dataSourceType: DataSourceType,
+    dataSourceError: String?,
+    isRealDataAvailable: Boolean,
+    onToggleDataSource: () -> Unit,
+    onSetDataSource: (DataSourceType) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = if (dataSourceType == DataSourceType.REAL) 
+                MaterialTheme.colorScheme.primaryContainer 
+            else 
+                MaterialTheme.colorScheme.secondaryContainer
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Data Source",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = if (dataSourceType == DataSourceType.REAL) 
+                            MaterialTheme.colorScheme.onPrimaryContainer 
+                        else 
+                            MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                    Text(
+                        text = when (dataSourceType) {
+                            DataSourceType.REAL -> "Real Health Connect Data"
+                            DataSourceType.MOCK -> "Mock Data (Demo)"
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (dataSourceType == DataSourceType.REAL) 
+                            MaterialTheme.colorScheme.onPrimaryContainer 
+                        else 
+                            MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
+                
+                Switch(
+                    checked = dataSourceType == DataSourceType.REAL,
+                    onCheckedChange = { isReal ->
+                        onSetDataSource(if (isReal) DataSourceType.REAL else DataSourceType.MOCK)
+                    }
+                )
+            }
+            
+            // Show error if real data failed
+            if (dataSourceError != null && dataSourceType == DataSourceType.REAL) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "⚠️ $dataSourceError",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = "Automatically switched to mock data",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            
+            // Show real data availability status
+            if (dataSourceType == DataSourceType.REAL) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = if (isRealDataAvailable) "✅ Real data available" else "📊 Checking for real data...",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (dataSourceType == DataSourceType.REAL) 
+                        MaterialTheme.colorScheme.onPrimaryContainer 
+                    else 
+                        MaterialTheme.colorScheme.onSecondaryContainer
+                )
             }
         }
     }

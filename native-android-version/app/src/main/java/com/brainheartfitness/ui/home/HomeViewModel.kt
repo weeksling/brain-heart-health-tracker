@@ -2,6 +2,8 @@ package com.brainheartfitness.ui.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.brainheartfitness.data.DataSourceManager
+import com.brainheartfitness.data.DataSourceType
 import com.brainheartfitness.data.health.HealthConnectManager
 import com.brainheartfitness.data.model.*
 import com.brainheartfitness.data.repository.HealthDataRepository
@@ -9,6 +11,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import javax.inject.Inject
@@ -19,13 +22,17 @@ data class HomeUiState(
     val hasPermissions: Boolean = false,
     val isLoading: Boolean = true,
     val currentData: ProgressData? = null,
-    val error: String? = null
+    val error: String? = null,
+    val dataSourceType: DataSourceType = DataSourceType.REAL,
+    val dataSourceError: String? = null,
+    val isRealDataAvailable: Boolean = false
 )
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val healthDataRepository: HealthDataRepository,
-    private val healthConnectManager: HealthConnectManager
+    private val healthConnectManager: HealthConnectManager,
+    private val dataSourceManager: DataSourceManager
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -33,6 +40,25 @@ class HomeViewModel @Inject constructor(
     
     init {
         checkHealthConnectAvailability()
+        observeDataSourceState()
+    }
+    
+    private fun observeDataSourceState() {
+        viewModelScope.launch {
+            dataSourceManager.dataSourceState.collect { dataSourceState ->
+                _uiState.value = _uiState.value.copy(
+                    dataSourceType = dataSourceState.currentSource,
+                    dataSourceError = dataSourceState.lastError,
+                    isRealDataAvailable = dataSourceState.isRealDataAvailable
+                )
+                
+                // Reload data when data source changes
+                when (_uiState.value.activeTab) {
+                    TimeRange.DAILY -> loadDailyData()
+                    TimeRange.WEEKLY -> loadWeeklyData()
+                }
+            }
+        }
     }
     
     fun setActiveTab(timeRange: TimeRange) {
@@ -41,6 +67,18 @@ class HomeViewModel @Inject constructor(
             TimeRange.DAILY -> loadDailyData()
             TimeRange.WEEKLY -> loadWeeklyData()
         }
+    }
+    
+    fun toggleDataSource() {
+        val newSource = when (_uiState.value.dataSourceType) {
+            DataSourceType.REAL -> DataSourceType.MOCK
+            DataSourceType.MOCK -> DataSourceType.REAL
+        }
+        dataSourceManager.setDataSource(newSource)
+    }
+    
+    fun setDataSource(dataSourceType: DataSourceType) {
+        dataSourceManager.setDataSource(dataSourceType)
     }
     
     fun onPermissionsGranted() {
@@ -55,6 +93,8 @@ class HomeViewModel @Inject constructor(
     fun retry() {
         checkHealthConnectAvailability()
     }
+    
+    fun getHealthConnectManager(): HealthConnectManager = healthConnectManager
     
     private fun checkHealthConnectAvailability() {
         viewModelScope.launch {

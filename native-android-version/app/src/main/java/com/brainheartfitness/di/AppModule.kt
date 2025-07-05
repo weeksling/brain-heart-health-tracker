@@ -1,6 +1,7 @@
 package com.brainheartfitness.di
 
 import android.content.Context
+import com.brainheartfitness.data.DataSourceManager
 import com.brainheartfitness.data.health.HealthConnectManager
 import com.brainheartfitness.data.repository.HealthDataRepository
 import dagger.Module
@@ -16,13 +17,21 @@ object AppModule {
     
     @Provides
     @Singleton
-    fun provideHealthConnectManager(
+    fun provideDataSourceManager(
         @ApplicationContext context: Context
-    ): HealthConnectManager = HealthConnectManager(context)
+    ): DataSourceManager = DataSourceManager(context)
+    
+    @Provides
+    @Singleton
+    fun provideHealthConnectManager(
+        @ApplicationContext context: Context,
+        dataSourceManager: DataSourceManager
+    ): HealthConnectManager = HealthConnectManager(context, dataSourceManager)
     
     @Provides
     @Singleton
     fun provideHealthDataRepository(
-        healthConnectManager: HealthConnectManager
-    ): HealthDataRepository = HealthDataRepository(healthConnectManager)
+        healthConnectManager: HealthConnectManager,
+        dataSourceManager: DataSourceManager
+    ): HealthDataRepository = HealthDataRepository(healthConnectManager, dataSourceManager)
 }

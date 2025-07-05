@@ -1,6 +1,7 @@
 package com.brainheartfitness.di;
 
 import android.content.Context;
+import com.brainheartfitness.data.DataSourceManager;
 import com.brainheartfitness.data.health.HealthConnectManager;
 import dagger.internal.DaggerGenerated;
 import dagger.internal.Factory;
@@ -28,21 +29,26 @@ import javax.inject.Provider;
 public final class AppModule_ProvideHealthConnectManagerFactory implements Factory<HealthConnectManager> {
   private final Provider<Context> contextProvider;
 
-  public AppModule_ProvideHealthConnectManagerFactory(Provider<Context> contextProvider) {
+  private final Provider<DataSourceManager> dataSourceManagerProvider;
+
+  public AppModule_ProvideHealthConnectManagerFactory(Provider<Context> contextProvider,
+      Provider<DataSourceManager> dataSourceManagerProvider) {
     this.contextProvider = contextProvider;
+    this.dataSourceManagerProvider = dataSourceManagerProvider;
   }
 
   @Override
   public HealthConnectManager get() {
-    return provideHealthConnectManager(contextProvider.get());
+    return provideHealthConnectManager(contextProvider.get(), dataSourceManagerProvider.get());
   }
 
   public static AppModule_ProvideHealthConnectManagerFactory create(
-      Provider<Context> contextProvider) {
-    return new AppModule_ProvideHealthConnectManagerFactory(contextProvider);
+      Provider<Context> contextProvider, Provider<DataSourceManager> dataSourceManagerProvider) {
+    return new AppModule_ProvideHealthConnectManagerFactory(contextProvider, dataSourceManagerProvider);
   }
 
-  public static HealthConnectManager provideHealthConnectManager(Context context) {
-    return Preconditions.checkNotNullFromProvides(AppModule.INSTANCE.provideHealthConnectManager(context));
+  public static HealthConnectManager provideHealthConnectManager(Context context,
+      DataSourceManager dataSourceManager) {
+    return Preconditions.checkNotNullFromProvides(AppModule.INSTANCE.provideHealthConnectManager(context, dataSourceManager));
   }
 }

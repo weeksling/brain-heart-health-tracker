@@ -91,80 +91,116 @@ export default function HomeScreen() {
     try {
       setLoading(true);
       setError(null);
-
-      // In Expo Go, Health Connect initialization will fail gracefully
-      // No need to check explicitly
+      
+      console.log("HomeScreen: Starting health data initialization...");
 
       // Check if we're on Android
       if (Platform.OS !== "android") {
         setError("This app is currently only available for Android devices");
+        setPermissionsGranted(false);
         return;
       }
 
-      // Initialize the health data service
-      const initialized = await healthDataService.initialize();
+      // Initialize the health data service with timeout protection
+      const initPromise = healthDataService.initialize();
+      const timeoutPromise = new Promise<boolean>((resolve) => {
+        setTimeout(() => {
+          console.warn("HomeScreen: Health service initialization timeout");
+          resolve(true); // Return true to allow fallback to dummy data
+        }, 15000);
+      });
+      
+      const initialized = await Promise.race([initPromise, timeoutPromise]);
+      console.log("HomeScreen: Health service initialized:", initialized);
 
-      // If running in Expo Go, the service will automatically use dummy data
-      // and return true, so we can proceed normally
-      if (initialized) {
-        setPermissionsGranted(true);
+      // Always set permissions as granted since service handles fallbacks
+      setPermissionsGranted(true);
+
+      // Show info about data source
+      if (healthDataService.isHealthConnectAvailable()) {
+        console.log("HomeScreen: Using Health Connect data");
       } else {
-        // Only show error if we're not in Expo Go
-        Alert.alert(
-          "Health Connect Setup",
-          "This app requires Health Connect to track your fitness data. The app will use simulated data for now.",
-          [
-            {
-              text: "OK",
-              onPress: () => {
-                setPermissionsGranted(true);
-              },
-            },
-          ]
-        );
+        console.log("HomeScreen: Using simulated data");
+        // Optionally show a non-blocking notification
+        if (!__DEV__) {
+          setTimeout(() => {
+            Alert.alert(
+              "Health Connect",
+              "Health Connect is not available. The app is showing simulated data for demonstration purposes.",
+              [{ text: "OK" }]
+            );
+          }, 2000);
+        }
       }
 
-      // Fetch initial data
-      await Promise.all([fetchWeeklyData(), fetchDailyData()]);
+      // Fetch initial data with error handling
+      await Promise.allSettled([
+        fetchWeeklyData().catch(err => {
+          console.error("HomeScreen: Failed to fetch weekly data:", err);
+        }),
+        fetchDailyData().catch(err => {
+          console.error("HomeScreen: Failed to fetch daily data:", err);
+        })
+      ]);
+      
     } catch (err) {
-      console.error("Failed to initialize health data:", err);
+      console.error("HomeScreen: Critical initialization error:", err);
 
-      // More user-friendly error handling
-      if (err instanceof Error && err.message.includes("Health Connect")) {
-        setError(
-          "Health Connect is not available on this device. Please ensure you have Health Connect installed."
-        );
-      } else {
-        setError(
-          "Failed to load health data. The app will use simulated data."
-        );
+      // Always allow the app to continue with dummy data
+      setPermissionsGranted(true);
+      
+      // Set a user-friendly error message
+      setError(
+        "Health data temporarily unavailable. The app is showing simulated data."
+      );
+
+      // Still try to load data in case the service can provide fallback data
+      try {
+        await Promise.allSettled([
+          fetchWeeklyData().catch(() => {}),
+          fetchDailyData().catch(() => {})
+        ]);
+      } catch {
+        // Ignore errors in fallback data loading
       }
-
-      // Still try to load dummy data
-      await Promise.all([fetchWeeklyData(), fetchDailyData()]);
     } finally {
       setLoading(false);
+      console.log("HomeScreen: Health data initialization completed");
     }
   };
 
   const fetchWeeklyData = async () => {
     try {
-      const data = await healthDataService.getWeeklyHeartRateData();
+      console.log("HomeScreen: Fetching weekly data...");
+      const dataPromise = healthDataService.getWeeklyHeartRateData();
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('Weekly data fetch timeout')), 10000)
+      );
+      
+      const data = await Promise.race([dataPromise, timeoutPromise]);
+      console.log("HomeScreen: Weekly data fetched successfully");
       setWeeklyData(data);
     } catch (err) {
-      console.error("Failed to fetch weekly data:", err);
-      // Keep existing data if available
+      console.error("HomeScreen: Failed to fetch weekly data:", err);
+      // Keep existing data if available, don't crash the app
     }
   };
 
   const fetchDailyData = async () => {
     try {
+      console.log("HomeScreen: Fetching daily data...");
       const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD format
-      const data = await healthDataService.getDailyHeartRateData(today);
+      const dataPromise = healthDataService.getDailyHeartRateData(today);
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('Daily data fetch timeout')), 10000)
+      );
+      
+      const data = await Promise.race([dataPromise, timeoutPromise]);
+      console.log("HomeScreen: Daily data fetched successfully");
       setDailyData(data);
     } catch (err) {
-      console.error("Failed to fetch daily data:", err);
-      // Keep existing data if available
+      console.error("HomeScreen: Failed to fetch daily data:", err);
+      // Keep existing data if available, don't crash the app
     }
   };
 

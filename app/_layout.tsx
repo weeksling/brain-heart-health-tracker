@@ -4,6 +4,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
 
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useColorScheme } from "@/hooks/useColorScheme";
 
 export default function RootLayout() {
@@ -18,12 +19,19 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <ErrorBoundary
+      onError={(error, errorInfo) => {
+        console.error('App Error:', error, errorInfo);
+        // TODO: Send to crash reporting service
+      }}
+    >
+      <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+        <Stack>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="+not-found" />
+        </Stack>
+        <StatusBar style="auto" />
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }

@@ -162,43 +162,60 @@ export class HealthDataService {
     }
 
     try {
+      console.log("HealthDataService: Starting initialization...");
+      
       // Check if running on Android
       if (Platform.OS !== "android") {
         console.warn("HealthDataService: Only Android is currently supported");
+        this.isInitialized = true; // Still allow initialization for cross-platform development
         return false;
       }
 
-      // Check if running in Expo Go by trying to access Health Connect
-      // In Expo Go, the Health Connect SDK won't be available
+      // Check if running in Expo Go or development mode
+      const isExpoGo = __DEV__ && !(global as any).__expo_custom_manifest__;
+      if (isExpoGo) {
+        console.log("HealthDataService: Running in Expo Go, using dummy data");
+        this.isInitialized = true;
+        return true;
+      }
+
+      // Try to access Health Connect with better error handling
       try {
-        const sdkStatus = await getSdkStatus();
-        console.log("HealthDataService: Health Connect SDK status check:", sdkStatus);
+        console.log("HealthDataService: Checking Health Connect SDK status...");
+        const sdkStatus = await Promise.race([
+          getSdkStatus(),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('SDK status check timeout')), 5000)
+          )
+        ]);
+        console.log("HealthDataService: Health Connect SDK status:", sdkStatus);
+        
+        // Initialize Health Connect
+        const healthConnectAvailable = await this.initializeHealthConnect();
+        this.healthConnectAvailable = healthConnectAvailable;
+        
       } catch (error) {
-        console.log("HealthDataService: Running in Expo Go or Health Connect not available, using dummy data");
-        this.isInitialized = true;
-        return true;
+        console.log("HealthDataService: Health Connect not available, error:", error);
+        this.healthConnectAvailable = false;
       }
 
-      // Initialize Health Connect
-      const healthConnectAvailable = await this.initializeHealthConnect();
-
-      if (healthConnectAvailable) {
-        this.isInitialized = true;
-        console.log("HealthDataService: Initialized with Health Connect");
-        return true;
-      } else {
-        console.warn(
-          "HealthDataService: Health Connect not available, falling back to dummy data"
-        );
-        // For development, allow fallback to dummy data
-        this.isInitialized = true;
-        return true;
-      }
-    } catch (error) {
-      console.error("HealthDataService: Initialization failed", error);
-      // For development, allow fallback to dummy data
+      // Always mark as initialized to prevent crashes
       this.isInitialized = true;
+      
+      if (this.healthConnectAvailable) {
+        console.log("HealthDataService: Successfully initialized with Health Connect");
+      } else {
+        console.log("HealthDataService: Initialized with dummy data fallback");
+      }
+      
       return true;
+      
+    } catch (error) {
+      console.error("HealthDataService: Critical initialization error:", error);
+      // Always mark as initialized to prevent crashes, even on critical errors
+      this.isInitialized = true;
+      this.healthConnectAvailable = false;
+      return true; // Return true to prevent app crashes
     }
   }
 
@@ -207,8 +224,15 @@ export class HealthDataService {
    */
   private async initializeHealthConnect(): Promise<boolean> {
     try {
-      // Check if Health Connect is available
-      const sdkStatus = await getSdkStatus();
+      console.log("HealthDataService: Initializing Health Connect...");
+      
+      // Check if Health Connect is available with timeout
+      const sdkStatus = await Promise.race([
+        getSdkStatus(),
+        new Promise<number>((_, reject) => 
+          setTimeout(() => reject(new Error('SDK status timeout')), 3000)
+        )
+      ]);
       
       console.log("HealthDataService: Health Connect SDK status:", sdkStatus);
       
@@ -220,29 +244,44 @@ export class HealthDataService {
         return false;
       }
 
-      // Initialize Health Connect
-      const initialized = await initialize();
+      // Initialize Health Connect with timeout
+      const initialized = await Promise.race([
+        initialize(),
+        new Promise<boolean>((_, reject) => 
+          setTimeout(() => reject(new Error('Initialize timeout')), 5000)
+        )
+      ]);
+      
       if (!initialized) {
         console.warn("HealthDataService: Failed to initialize Health Connect");
         return false;
       }
 
-      // Request permissions with a delay to ensure UI is ready
-      await new Promise<void>((resolve) => setTimeout(resolve, 1000));
+      console.log("HealthDataService: Health Connect initialized, requesting permissions...");
       
-      const permissionsGranted = await this.requestHealthConnectPermissions();
+      // Request permissions with a longer delay to ensure UI is ready and timeout protection
+      await new Promise<void>((resolve) => setTimeout(resolve, 2000));
+      
+      const permissionsGranted = await Promise.race([
+        this.requestHealthConnectPermissions(),
+        new Promise<boolean>((resolve) => 
+          setTimeout(() => {
+            console.warn("HealthDataService: Permission request timeout, assuming denied");
+            resolve(false);
+          }, 10000)
+        )
+      ]);
 
       if (permissionsGranted) {
-        this.healthConnectAvailable = true;
         console.log("HealthDataService: Health Connect permissions granted");
         return true;
       } else {
-        console.warn("HealthDataService: Health Connect permissions denied");
+        console.warn("HealthDataService: Health Connect permissions denied or timed out");
         return false;
       }
     } catch (error) {
       console.error(
-        "HealthDataService: Health Connect initialization failed",
+        "HealthDataService: Health Connect initialization failed:",
         error
       );
       return false;
@@ -254,16 +293,41 @@ export class HealthDataService {
    */
   private async requestHealthConnectPermissions(): Promise<boolean> {
     try {
+      console.log("HealthDataService: Requesting Health Connect permissions...");
+      
       const permissions: Permission[] = [
         { accessType: "read", recordType: "HeartRate" },
         { accessType: "read", recordType: "Steps" },
         { accessType: "read", recordType: "ExerciseSession" },
       ];
 
-      const granted = await requestPermission(permissions);
-      return granted.length > 0;
+      // Request permissions with proper error handling
+      let granted: Permission[] = [];
+      
+      try {
+        granted = await requestPermission(permissions);
+        console.log("HealthDataService: Permission response:", granted);
+      } catch (permissionError) {
+        console.error("HealthDataService: Permission request failed:", permissionError);
+        
+        // Try to check if permissions were already granted
+        try {
+          granted = await getGrantedPermissions();
+          console.log("HealthDataService: Checking existing permissions:", granted);
+        } catch (checkError) {
+          console.error("HealthDataService: Failed to check existing permissions:", checkError);
+          return false;
+        }
+      }
+      
+      const hasRequiredPermissions = granted.length > 0 && 
+        granted.some(p => p.recordType === "HeartRate");
+        
+      console.log("HealthDataService: Has required permissions:", hasRequiredPermissions);
+      return hasRequiredPermissions;
+      
     } catch (error) {
-      console.error("HealthDataService: Permission request failed", error);
+      console.error("HealthDataService: Critical permission error:", error);
       return false;
     }
   }

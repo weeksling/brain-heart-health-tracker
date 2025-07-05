@@ -1,3 +1,4 @@
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Colors } from "@/constants/Colors";
@@ -343,33 +344,35 @@ export default function ProgressScreen() {
   }
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: colors.background }]}
-    >
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+    <ErrorBoundary>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
       >
-        <View style={styles.header}>
-          <ThemedText type="title" style={styles.title}>
-            Progress Tracker
-          </ThemedText>
-          <ThemedText style={styles.subtitle}>
-            Track your weekly Zone 2+ exercise minutes
-          </ThemedText>
-        </View>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.header}>
+            <ThemedText type="title" style={styles.title}>
+              Progress Tracker
+            </ThemedText>
+            <ThemedText style={styles.subtitle}>
+              Track your weekly Zone 2+ exercise minutes
+            </ThemedText>
+          </View>
 
-        {renderChart()}
-        {renderDailyBreakdown()}
+          {renderChart()}
+          {renderDailyBreakdown()}
 
-        <View style={styles.infoContainer}>
-          <ThemedText style={styles.infoText}>
-            💡 Aim for at least 150 minutes of Zone 2+ activity per week for optimal brain health benefits.
-          </ThemedText>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+          <View style={styles.infoContainer}>
+            <ThemedText style={styles.infoText}>
+              💡 Aim for at least 150 minutes of Zone 2+ activity per week for optimal brain health benefits.
+            </ThemedText>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </ErrorBoundary>
   );
 }
 

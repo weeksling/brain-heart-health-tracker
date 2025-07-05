@@ -146,8 +146,15 @@ class HealthDataRepository @Inject constructor(
             mapOf("zone1" to 150, "zone2" to 150, "zone3" to 30, "zone2Plus" to 150)
         }
         
+        // Create simplified progress zones
         val progressZones = zones.map { zone ->
-            zone.copy(
+            HeartRateZone(
+                id = zone.id,
+                name = zone.name,
+                description = zone.description,
+                minBpm = zone.minBpm,
+                maxBpm = zone.maxBpm,
+                color = zone.color,
                 minutes = summary.zoneBreakdown[zone.id] ?: 0,
                 dailyGoal = if (timeRange == TimeRange.DAILY) goals[zone.id] ?: 0 else zone.dailyGoal,
                 weeklyGoal = if (timeRange == TimeRange.WEEKLY) goals[zone.id] ?: 0 else zone.weeklyGoal
@@ -172,8 +179,8 @@ class HealthDataRepository @Inject constructor(
     private fun generateDummySessions(count: Int = 3): List<HeartRateSession> {
         val now = Instant.now()
         return (0 until count).map { i ->
-            val sessionStart = now.minus((i + 1) * 8, ChronoUnit.HOURS)
-            val sessionEnd = sessionStart.plus(45, ChronoUnit.MINUTES)
+            val sessionStart = now.minus((i + 1) * 8L, ChronoUnit.HOURS)
+            val sessionEnd = sessionStart.plus(45L, ChronoUnit.MINUTES)
             
             HeartRateSession(
                 startTime = sessionStart,

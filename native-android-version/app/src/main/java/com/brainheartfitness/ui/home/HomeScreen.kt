@@ -100,24 +100,29 @@ fun HomeScreen(
                     // Show main content
                     if (uiState.isLoading) {
                         LoadingCard()
-                    } else if (uiState.error != null) {
-                        ErrorCard(
-                            message = uiState.error,
-                            onRetry = { viewModel.retry() }
-                        )
-                    } else if (uiState.currentData != null) {
-                        GoalCard(
-                            currentMinutes = uiState.currentData.totalZone2PlusMinutes,
-                            goalMinutes = uiState.currentData.zone2PlusGoal,
-                            timeRange = uiState.activeTab
-                        )
+                    } else {
+                        val error = uiState.error
+                        val currentData = uiState.currentData
                         
-                        Spacer(modifier = Modifier.height(16.dp))
-                        
-                        HeartRateZonesList(
-                            zones = uiState.currentData.zones,
-                            timeRange = uiState.activeTab
-                        )
+                        if (error != null) {
+                            ErrorCard(
+                                message = error,
+                                onRetry = { viewModel.retry() }
+                            )
+                        } else if (currentData != null) {
+                            GoalCard(
+                                currentMinutes = currentData.totalZone2PlusMinutes,
+                                goalMinutes = currentData.zone2PlusGoal,
+                                timeRange = uiState.activeTab
+                            )
+                            
+                            Spacer(modifier = Modifier.height(16.dp))
+                            
+                            HeartRateZonesList(
+                                zones = currentData.zones,
+                                timeRange = uiState.activeTab
+                            )
+                        }
                     }
                 } else {
                     // Permission request UI

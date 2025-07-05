@@ -53,11 +53,9 @@ class HealthConnectManager @Inject constructor(
         }
     }
     
-    fun createPermissionRequestContract(): ActivityResultContract<Set<HealthPermission>, Set<HealthPermission>> {
-        return PermissionController.createRequestPermissionResultContract()
-    }
+    fun createPermissionRequestContract() = PermissionController.createRequestPermissionResultContract()
     
-    fun getRequiredPermissions(): Set<HealthPermission> = permissions
+    fun getRequiredPermissions() = permissions
     
     suspend fun getHeartRateData(startTime: Instant, endTime: Instant): List<HeartRateRecord> = withContext(Dispatchers.IO) {
         try {

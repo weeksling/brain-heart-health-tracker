@@ -27,14 +27,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.brainheartfitness.app",
-      "permissions": [
-        "android.permission.ACTIVITY_RECOGNITION",
-        "android.permission.BODY_SENSORS",
-        "android.permission.BODY_SENSORS_BACKGROUND",
-        "android.permission.health.READ_HEART_RATE",
-        "android.permission.health.READ_STEPS",
-        "android.permission.health.READ_EXERCISE"
-      ],
+      "permissions": [],
       "minSdkVersion": 26,
       "targetSdkVersion": 31,
       "compileSdkVersion": 31
@@ -46,16 +39,6 @@
     },
     "plugins": [
       "expo-router",
-      [
-        "react-native-health-connect",
-        {
-          "permissions": [
-            "android.permission.health.READ_HEART_RATE",
-            "android.permission.health.READ_STEPS",
-            "android.permission.health.READ_EXERCISE"
-          ]
-        }
-      ],
       [
         "expo-build-properties",
         {

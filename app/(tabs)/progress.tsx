@@ -92,33 +92,34 @@ export default function ProgressScreen() {
     const dailyData: DailyProgress[] = [];
     const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-    for (let i = 0; i < 7; i++) {
+    const promises = Array.from({ length: 7 }, (_, i) => {
       const date = new Date(weekStart);
       date.setDate(weekStart.getDate() + i);
+      const dateString = date.toISOString().split("T")[0];
       
-      // Only fetch data for days up to today
       if (date <= today) {
-        const dateString = date.toISOString().split("T")[0];
-        const dayData = await healthDataService.getDailyHeartRateData(dateString);
-        
-        const zone2PlusMinutes = 
-          (dayData.zoneBreakdown.zone2 || 0) + 
-          (dayData.zoneBreakdown.zone3 || 0);
-        
-        dailyData.push({
-          day: dayNames[i],
-          date: dateString,
-          zone2PlusMinutes,
+        return healthDataService.getDailyHeartRateData(dateString).then(dayData => {
+          const zone2PlusMinutes = 
+            (dayData.zoneBreakdown.zone2 || 0) + 
+            (dayData.zoneBreakdown.zone3 || 0);
+          return {
+            day: dayNames[i],
+            date: dateString,
+            zone2PlusMinutes,
+          };
         });
       } else {
         // Future days show as 0
-        dailyData.push({
+        return Promise.resolve({
           day: dayNames[i],
-          date: date.toISOString().split("T")[0],
+          date: dateString,
           zone2PlusMinutes: 0,
         });
       }
-    }
+    });
+    
+    const dailyData = await Promise.all(promises);
+    return dailyData;
 
     return dailyData;
   };

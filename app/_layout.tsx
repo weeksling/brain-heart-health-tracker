@@ -1,10 +1,13 @@
+// Import early error handler FIRST to catch startup errors
+import "@/components/EarlyErrorHandler";
+
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
 
-import { ErrorBoundary } from "@/components/ErrorBoundary";
+import GlobalErrorHandler from "@/components/GlobalErrorHandler";
 import { useColorScheme } from "@/hooks/useColorScheme";
 
 export default function RootLayout() {
@@ -19,12 +22,7 @@ export default function RootLayout() {
   }
 
   return (
-    <ErrorBoundary
-      onError={(error, errorInfo) => {
-        console.error('App Error:', error, errorInfo);
-        // TODO: Send to crash reporting service
-      }}
-    >
+    <GlobalErrorHandler>
       <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -32,6 +30,6 @@ export default function RootLayout() {
         </Stack>
         <StatusBar style="auto" />
       </ThemeProvider>
-    </ErrorBoundary>
+    </GlobalErrorHandler>
   );
 }

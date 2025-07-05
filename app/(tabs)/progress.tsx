@@ -130,7 +130,7 @@ export default function ProgressScreen() {
     
     // Calculate daily goal (weekly goal / 7)
     const dailyGoal = DEFAULT_GOALS.weekly.zone2Plus / 7;
-    const goalLine = new Array(7).fill(dailyGoal);
+    const goalLine = new Array(dailyProgress.length).fill(dailyGoal);
 
     return {
       labels,

@@ -51,6 +51,9 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     
+    // AppCompat for theme compatibility
+    implementation("androidx.appcompat:appcompat:1.6.1")
+    
     // Health Connect
     implementation(libs.androidx.health.connect)
     

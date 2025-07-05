@@ -9,6 +9,7 @@ import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
+import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import com.brainheartfitness.data.model.HealthConnectState
@@ -16,6 +17,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.Instant
+import java.time.ZoneOffset
+import kotlin.random.Random
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -96,29 +99,14 @@ class HealthConnectManager @Inject constructor(
     
     // Generate dummy data for development/testing when Health Connect is not available
     private fun generateDummyHeartRateData(startTime: Instant, endTime: Instant): List<HeartRateRecord> {
-        val dummyData = mutableListOf<HeartRateRecord>()
-        val interval = 5 * 60 * 1000L // 5 minutes in milliseconds
-        
-        var currentTime = startTime.toEpochMilli()
-        val endTimeMillis = endTime.toEpochMilli()
-        
-        while (currentTime <= endTimeMillis) {
-            val baseHeartRate = 70
-            val variation = kotlin.math.sin((currentTime - startTime.toEpochMilli()).toDouble() / (24 * 60 * 60 * 1000)) * 20
-            val randomVariation = (kotlin.math.random() - 0.5) * 10
-            val heartRate = maxOf(60, minOf(100, (baseHeartRate + variation + randomVariation).toInt()))
-            
-            // Note: Creating actual HeartRateRecord instances would require more setup
-            // For now, this is a placeholder - in real implementation you'd create proper records
-            currentTime += interval
-        }
-        
-        return dummyData
+        // For now, return empty list to avoid compilation issues
+        // In a real implementation, we would create proper dummy data
+        return emptyList()
     }
     
     private fun generateDummyStepsData(startTime: Instant, endTime: Instant): List<StepsRecord> {
-        val dummyData = mutableListOf<StepsRecord>()
-        // Similar dummy data generation for steps
-        return dummyData
+        // For now, return empty list to avoid compilation issues
+        // In a real implementation, we would create proper dummy data
+        return emptyList()
     }
 }

@@ -55,6 +55,14 @@
             "android.permission.health.READ_EXERCISE"
           ]
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 26
+          }
+        }
       ]
     ],
     "experiments": {

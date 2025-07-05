@@ -316,6 +316,8 @@ export class HealthDataService {
     startTime: number,
     endTime: number
   ): Promise<HeartRateDataPoint[]> {
+    console.log(`HealthDataService: Fetching heart rate data from ${new Date(startTime).toISOString()} to ${new Date(endTime).toISOString()}`);
+    
     if (!this.healthConnectAvailable) {
       console.warn(
         "HealthDataService: Health Connect not available, returning dummy data"
@@ -332,29 +334,47 @@ export class HealthDataService {
         },
       };
 
+      console.log("HealthDataService: Requesting heart rate records from Health Connect...");
       const response: ReadRecordsResult<"HeartRate"> = await readRecords(
         "HeartRate",
         options
       );
 
+      console.log(`HealthDataService: Received ${response.records.length} heart rate records from Health Connect`);
+
+      if (response.records.length === 0) {
+        console.warn("HealthDataService: No heart rate records found in Health Connect, using dummy data");
+        return this.getDummyHeartRateData(startTime, endTime);
+      }
+
       // Convert Health Connect records to our data format
       const heartRateData: HeartRateDataPoint[] = response.records.map(
         (record) => ({
           timestamp: new Date(record.startTime).getTime(),
-          value: record.samples[0]?.beatsPerMinute || 0,
+          value: record.samples && record.samples.length > 0 ? record.samples[0].beatsPerMinute : 70,
           source: "health_connect",
         })
       );
 
+      // Sort by timestamp
+      heartRateData.sort((a, b) => a.timestamp - b.timestamp);
+
       console.log(
-        `HealthDataService: Retrieved ${heartRateData.length} heart rate records`
+        `HealthDataService: Successfully processed ${heartRateData.length} heart rate records`
       );
       return heartRateData;
     } catch (error) {
       console.error(
-        "HealthDataService: Failed to fetch heart rate data",
+        "HealthDataService: Failed to fetch heart rate data from Health Connect:",
         error
       );
+      
+      // Check if it's a permissions error
+      if (error instanceof Error && error.message.includes('permission')) {
+        console.warn("HealthDataService: Permissions may have been revoked, falling back to dummy data");
+        this.healthConnectAvailable = false;
+      }
+      
       // Fallback to dummy data
       return this.getDummyHeartRateData(startTime, endTime);
     }
@@ -371,14 +391,32 @@ export class HealthDataService {
     const interval = 5 * 60 * 1000; // 5 minutes
 
     for (let time = startTime; time <= endTime; time += interval) {
-      // Generate more realistic heart rate patterns
-      const baseHeartRate = 70;
-      const variation =
-        Math.sin(((time - startTime) / (24 * 60 * 60 * 1000)) * Math.PI) * 20;
+      // Generate more realistic heart rate patterns with different activities
+      const hourOfDay = new Date(time).getHours();
+      let baseHeartRate = 70;
+      
+      // Simulate different activities throughout the day
+      if (hourOfDay >= 6 && hourOfDay <= 8) {
+        // Morning exercise
+        baseHeartRate = 120 + Math.random() * 40; // Zone 2-3
+      } else if (hourOfDay >= 12 && hourOfDay <= 13) {
+        // Lunch walk
+        baseHeartRate = 90 + Math.random() * 20; // Zone 1-2
+      } else if (hourOfDay >= 17 && hourOfDay <= 19) {
+        // Evening workout
+        baseHeartRate = 140 + Math.random() * 30; // Zone 3-4
+      } else if (hourOfDay >= 22 || hourOfDay <= 6) {
+        // Sleep/rest
+        baseHeartRate = 60 + Math.random() * 15; // Zone 1
+      } else {
+        // Regular daily activities
+        baseHeartRate = 80 + Math.random() * 20; // Zone 1-2
+      }
+
       const randomVariation = (Math.random() - 0.5) * 10;
       const heartRate = Math.max(
-        60,
-        Math.min(100, baseHeartRate + variation + randomVariation)
+        50,
+        Math.min(180, baseHeartRate + randomVariation)
       );
 
       dummyData.push({
@@ -388,6 +426,7 @@ export class HealthDataService {
       });
     }
 
+    console.log(`HealthDataService: Generated ${dummyData.length} dummy heart rate data points`);
     return dummyData;
   }
 

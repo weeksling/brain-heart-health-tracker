@@ -14,8 +14,8 @@ android {
         applicationId = "com.brainheartfitness"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -50,6 +50,9 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    
+    // AppCompat for theme compatibility
+    implementation("androidx.appcompat:appcompat:1.6.1")
     
     // Health Connect
     implementation(libs.androidx.health.connect)

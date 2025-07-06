@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Brain Heart Fitness</string>
+    <string name="app_name">Brain Heart Health Tracker Native</string>
     <string name="home">Home</string>
     <string name="progress">Progress</string>
     <string name="explore">Explore</string>
@@ -45,4 +45,17 @@
     <string name="retry">Retry</string>
     <string name="error_loading_data">Error loading health data</string>
     <string name="subtitle">Track your heart rate zones for optimal brain health</string>
+    
+    <!-- Explore Screen -->
+    <string name="raw_activity_data">Raw Activity Data</string>
+    <string name="mock_data_warning">⚠️ Currently showing MOCK DATA - Not connected to real API</string>
+    <string name="weekly_summary">Weekly Summary</string>
+    <string name="todays_summary">Today\'s Summary</string>
+    <string name="heart_rate_sessions">Heart Rate Sessions</string>
+    <string name="no_sessions_recorded">No sessions recorded</string>
+    <string name="session_number">Session %d</string>
+    <string name="start_time">Start Time</string>
+    <string name="end_time">End Time</string>
+    <string name="duration">Duration</string>
+    <string name="zone_minutes">Zone Minutes</string>
 </resources>

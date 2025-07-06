@@ -14,6 +14,7 @@ import androidx.navigation.compose.rememberNavController
 import com.brainheartfitness.R
 import com.brainheartfitness.ui.home.HomeScreen
 import com.brainheartfitness.ui.progress.ProgressScreen
+import com.brainheartfitness.ui.explore.ExploreScreen
 
 sealed class Screen(val route: String, val resourceId: Int) {
     object Home : Screen("home", R.string.home)
@@ -86,16 +87,3 @@ fun BrainHeartFitnessApp(modifier: Modifier = Modifier) {
     }
 }
 
-@Composable
-fun ExploreScreen() {
-    // Simple placeholder for explore screen
-    Card(
-        modifier = Modifier.padding(16.dp)
-    ) {
-        Text(
-            text = "Explore Screen - Coming Soon!",
-            modifier = Modifier.padding(16.dp),
-            style = MaterialTheme.typography.headlineMedium
-        )
-    }
-}

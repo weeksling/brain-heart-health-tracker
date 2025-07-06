@@ -3,6 +3,9 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
     
+    <!-- Launcher Icon Background -->
+    <color name="iconBackground">#FF6200EE</color>
+    
     <!-- Heart Rate Zone Colors -->
     <color name="zone_1_color">#FF81C784</color> <!-- Green - Recovery -->
     <color name="zone_2_color">#FF64B5F6</color> <!-- Blue - Aerobic Base -->

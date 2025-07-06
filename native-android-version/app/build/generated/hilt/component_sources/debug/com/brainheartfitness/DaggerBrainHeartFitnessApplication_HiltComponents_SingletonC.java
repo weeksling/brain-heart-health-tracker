@@ -401,18 +401,18 @@ public final class DaggerBrainHeartFitnessApplication_HiltComponents_SingletonC 
     private static final class LazyClassKeyProvider {
       static String com_brainheartfitness_ui_progress_ProgressViewModel = "com.brainheartfitness.ui.progress.ProgressViewModel";
 
-      static String com_brainheartfitness_ui_explore_ExploreViewModel = "com.brainheartfitness.ui.explore.ExploreViewModel";
-
       static String com_brainheartfitness_ui_home_HomeViewModel = "com.brainheartfitness.ui.home.HomeViewModel";
+
+      static String com_brainheartfitness_ui_explore_ExploreViewModel = "com.brainheartfitness.ui.explore.ExploreViewModel";
 
       @KeepFieldType
       ProgressViewModel com_brainheartfitness_ui_progress_ProgressViewModel2;
 
       @KeepFieldType
-      ExploreViewModel com_brainheartfitness_ui_explore_ExploreViewModel2;
+      HomeViewModel com_brainheartfitness_ui_home_HomeViewModel2;
 
       @KeepFieldType
-      HomeViewModel com_brainheartfitness_ui_home_HomeViewModel2;
+      ExploreViewModel com_brainheartfitness_ui_explore_ExploreViewModel2;
     }
   }
 
@@ -459,20 +459,20 @@ public final class DaggerBrainHeartFitnessApplication_HiltComponents_SingletonC 
 
     @IdentifierNameString
     private static final class LazyClassKeyProvider {
-      static String com_brainheartfitness_ui_home_HomeViewModel = "com.brainheartfitness.ui.home.HomeViewModel";
-
       static String com_brainheartfitness_ui_progress_ProgressViewModel = "com.brainheartfitness.ui.progress.ProgressViewModel";
 
       static String com_brainheartfitness_ui_explore_ExploreViewModel = "com.brainheartfitness.ui.explore.ExploreViewModel";
 
-      @KeepFieldType
-      HomeViewModel com_brainheartfitness_ui_home_HomeViewModel2;
+      static String com_brainheartfitness_ui_home_HomeViewModel = "com.brainheartfitness.ui.home.HomeViewModel";
 
       @KeepFieldType
       ProgressViewModel com_brainheartfitness_ui_progress_ProgressViewModel2;
 
       @KeepFieldType
       ExploreViewModel com_brainheartfitness_ui_explore_ExploreViewModel2;
+
+      @KeepFieldType
+      HomeViewModel com_brainheartfitness_ui_home_HomeViewModel2;
     }
 
     private static final class SwitchingProvider<T> implements Provider<T> {
@@ -497,7 +497,7 @@ public final class DaggerBrainHeartFitnessApplication_HiltComponents_SingletonC 
       public T get() {
         switch (id) {
           case 0: // com.brainheartfitness.ui.explore.ExploreViewModel 
-          return (T) new ExploreViewModel(singletonCImpl.provideHealthDataRepositoryProvider.get());
+          return (T) new ExploreViewModel(singletonCImpl.provideHealthDataRepositoryProvider.get(), singletonCImpl.provideHealthConnectManagerProvider.get());
 
           case 1: // com.brainheartfitness.ui.home.HomeViewModel 
           return (T) new HomeViewModel(singletonCImpl.provideHealthDataRepositoryProvider.get(), singletonCImpl.provideHealthConnectManagerProvider.get(), singletonCImpl.provideDataSourceManagerProvider.get());

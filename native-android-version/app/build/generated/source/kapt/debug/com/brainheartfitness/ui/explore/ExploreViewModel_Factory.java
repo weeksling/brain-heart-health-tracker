@@ -1,5 +1,6 @@
 package com.brainheartfitness.ui.explore;
 
+import com.brainheartfitness.data.health.HealthConnectManager;
 import com.brainheartfitness.data.repository.HealthDataRepository;
 import dagger.internal.DaggerGenerated;
 import dagger.internal.Factory;
@@ -26,21 +27,27 @@ import javax.inject.Provider;
 public final class ExploreViewModel_Factory implements Factory<ExploreViewModel> {
   private final Provider<HealthDataRepository> healthDataRepositoryProvider;
 
-  public ExploreViewModel_Factory(Provider<HealthDataRepository> healthDataRepositoryProvider) {
+  private final Provider<HealthConnectManager> healthConnectManagerProvider;
+
+  public ExploreViewModel_Factory(Provider<HealthDataRepository> healthDataRepositoryProvider,
+      Provider<HealthConnectManager> healthConnectManagerProvider) {
     this.healthDataRepositoryProvider = healthDataRepositoryProvider;
+    this.healthConnectManagerProvider = healthConnectManagerProvider;
   }
 
   @Override
   public ExploreViewModel get() {
-    return newInstance(healthDataRepositoryProvider.get());
+    return newInstance(healthDataRepositoryProvider.get(), healthConnectManagerProvider.get());
   }
 
   public static ExploreViewModel_Factory create(
-      Provider<HealthDataRepository> healthDataRepositoryProvider) {
-    return new ExploreViewModel_Factory(healthDataRepositoryProvider);
+      Provider<HealthDataRepository> healthDataRepositoryProvider,
+      Provider<HealthConnectManager> healthConnectManagerProvider) {
+    return new ExploreViewModel_Factory(healthDataRepositoryProvider, healthConnectManagerProvider);
   }
 
-  public static ExploreViewModel newInstance(HealthDataRepository healthDataRepository) {
-    return new ExploreViewModel(healthDataRepository);
+  public static ExploreViewModel newInstance(HealthDataRepository healthDataRepository,
+      HealthConnectManager healthConnectManager) {
+    return new ExploreViewModel(healthDataRepository, healthConnectManager);
   }
 }

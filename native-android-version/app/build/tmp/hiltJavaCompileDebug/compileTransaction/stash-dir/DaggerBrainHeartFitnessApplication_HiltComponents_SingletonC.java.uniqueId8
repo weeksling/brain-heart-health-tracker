@@ -6,8 +6,10 @@ import android.view.View;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.SavedStateHandle;
 import androidx.lifecycle.ViewModel;
+import com.brainheartfitness.data.DataSourceManager;
 import com.brainheartfitness.data.health.HealthConnectManager;
 import com.brainheartfitness.data.repository.HealthDataRepository;
+import com.brainheartfitness.di.AppModule_ProvideDataSourceManagerFactory;
 import com.brainheartfitness.di.AppModule_ProvideHealthConnectManagerFactory;
 import com.brainheartfitness.di.AppModule_ProvideHealthDataRepositoryFactory;
 import com.brainheartfitness.ui.explore.ExploreViewModel;
@@ -397,20 +399,20 @@ public final class DaggerBrainHeartFitnessApplication_HiltComponents_SingletonC 
 
     @IdentifierNameString
     private static final class LazyClassKeyProvider {
-      static String com_brainheartfitness_ui_home_HomeViewModel = "com.brainheartfitness.ui.home.HomeViewModel";
+      static String com_brainheartfitness_ui_progress_ProgressViewModel = "com.brainheartfitness.ui.progress.ProgressViewModel";
 
       static String com_brainheartfitness_ui_explore_ExploreViewModel = "com.brainheartfitness.ui.explore.ExploreViewModel";
 
-      static String com_brainheartfitness_ui_progress_ProgressViewModel = "com.brainheartfitness.ui.progress.ProgressViewModel";
+      static String com_brainheartfitness_ui_home_HomeViewModel = "com.brainheartfitness.ui.home.HomeViewModel";
 
       @KeepFieldType
-      HomeViewModel com_brainheartfitness_ui_home_HomeViewModel2;
+      ProgressViewModel com_brainheartfitness_ui_progress_ProgressViewModel2;
 
       @KeepFieldType
       ExploreViewModel com_brainheartfitness_ui_explore_ExploreViewModel2;
 
       @KeepFieldType
-      ProgressViewModel com_brainheartfitness_ui_progress_ProgressViewModel2;
+      HomeViewModel com_brainheartfitness_ui_home_HomeViewModel2;
     }
   }
 
@@ -457,20 +459,20 @@ public final class DaggerBrainHeartFitnessApplication_HiltComponents_SingletonC 
 
     @IdentifierNameString
     private static final class LazyClassKeyProvider {
+      static String com_brainheartfitness_ui_home_HomeViewModel = "com.brainheartfitness.ui.home.HomeViewModel";
+
       static String com_brainheartfitness_ui_progress_ProgressViewModel = "com.brainheartfitness.ui.progress.ProgressViewModel";
 
       static String com_brainheartfitness_ui_explore_ExploreViewModel = "com.brainheartfitness.ui.explore.ExploreViewModel";
 
-      static String com_brainheartfitness_ui_home_HomeViewModel = "com.brainheartfitness.ui.home.HomeViewModel";
+      @KeepFieldType
+      HomeViewModel com_brainheartfitness_ui_home_HomeViewModel2;
 
       @KeepFieldType
       ProgressViewModel com_brainheartfitness_ui_progress_ProgressViewModel2;
 
       @KeepFieldType
       ExploreViewModel com_brainheartfitness_ui_explore_ExploreViewModel2;
-
-      @KeepFieldType
-      HomeViewModel com_brainheartfitness_ui_home_HomeViewModel2;
     }
 
     private static final class SwitchingProvider<T> implements Provider<T> {
@@ -498,7 +500,7 @@ public final class DaggerBrainHeartFitnessApplication_HiltComponents_SingletonC 
           return (T) new ExploreViewModel(singletonCImpl.provideHealthDataRepositoryProvider.get());
 
           case 1: // com.brainheartfitness.ui.home.HomeViewModel 
-          return (T) new HomeViewModel(singletonCImpl.provideHealthDataRepositoryProvider.get(), singletonCImpl.provideHealthConnectManagerProvider.get());
+          return (T) new HomeViewModel(singletonCImpl.provideHealthDataRepositoryProvider.get(), singletonCImpl.provideHealthConnectManagerProvider.get(), singletonCImpl.provideDataSourceManagerProvider.get());
 
           case 2: // com.brainheartfitness.ui.progress.ProgressViewModel 
           return (T) new ProgressViewModel(singletonCImpl.provideHealthDataRepositoryProvider.get());
@@ -583,6 +585,8 @@ public final class DaggerBrainHeartFitnessApplication_HiltComponents_SingletonC 
 
     private final SingletonCImpl singletonCImpl = this;
 
+    private Provider<DataSourceManager> provideDataSourceManagerProvider;
+
     private Provider<HealthConnectManager> provideHealthConnectManagerProvider;
 
     private Provider<HealthDataRepository> provideHealthDataRepositoryProvider;
@@ -595,6 +599,7 @@ public final class DaggerBrainHeartFitnessApplication_HiltComponents_SingletonC 
 
     @SuppressWarnings("unchecked")
     private void initialize(final ApplicationContextModule applicationContextModuleParam) {
+      this.provideDataSourceManagerProvider = DoubleCheck.provider(new SwitchingProvider<DataSourceManager>(singletonCImpl, 2));
       this.provideHealthConnectManagerProvider = DoubleCheck.provider(new SwitchingProvider<HealthConnectManager>(singletonCImpl, 1));
       this.provideHealthDataRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<HealthDataRepository>(singletonCImpl, 0));
     }
@@ -634,10 +639,13 @@ public final class DaggerBrainHeartFitnessApplication_HiltComponents_SingletonC 
       public T get() {
         switch (id) {
           case 0: // com.brainheartfitness.data.repository.HealthDataRepository 
-          return (T) AppModule_ProvideHealthDataRepositoryFactory.provideHealthDataRepository(singletonCImpl.provideHealthConnectManagerProvider.get());
+          return (T) AppModule_ProvideHealthDataRepositoryFactory.provideHealthDataRepository(singletonCImpl.provideHealthConnectManagerProvider.get(), singletonCImpl.provideDataSourceManagerProvider.get());
 
           case 1: // com.brainheartfitness.data.health.HealthConnectManager 
-          return (T) AppModule_ProvideHealthConnectManagerFactory.provideHealthConnectManager(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
+          return (T) AppModule_ProvideHealthConnectManagerFactory.provideHealthConnectManager(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule), singletonCImpl.provideDataSourceManagerProvider.get());
+
+          case 2: // com.brainheartfitness.data.DataSourceManager 
+          return (T) AppModule_ProvideDataSourceManagerFactory.provideDataSourceManager(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
 
           default: throw new AssertionError(id);
         }

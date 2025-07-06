@@ -57,23 +57,53 @@ class ExploreViewModel @Inject constructor(
         loadRawData()
     }
     
-    fun getRawDataDebugInfo() {
+    fun getRawDataDebugInfo(startDate: LocalDate? = null, endDate: LocalDate? = null) {
         viewModelScope.launch {
-            loadRawDataDebugInfo()
+            loadRawDataDebugInfo(startDate, endDate)
         }
     }
     
-    private suspend fun loadRawDataDebugInfo() {
+    fun getDataComparisonDebug() {
+        viewModelScope.launch {
+            try {
+                val comparisonInfo = healthDataRepository.getDataComparisonDebug()
+                _uiState.value = _uiState.value.copy(rawDataDebugInfo = comparisonInfo)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(rawDataDebugInfo = "Error loading comparison debug info: ${e.message}")
+            }
+        }
+    }
+    
+    private suspend fun loadRawDataDebugInfo(startDate: LocalDate?, endDate: LocalDate?) {
         try {
+            // Default to weekly time range if no dates provided
             val now = Instant.now()
-            val weekStart = now.minus(7, ChronoUnit.DAYS)
+            val defaultStartDate = getWeekStart(now)
+            val defaultEndDate = now
             
-            val heartRateData = healthConnectManager.getHeartRateData(weekStart, now)
-            val stepsData = healthConnectManager.getStepsData(weekStart, now)
+            val actualStartDate = startDate?.atStartOfDay(ZoneId.systemDefault())?.toInstant() ?: defaultStartDate
+            val actualEndDate = endDate?.atStartOfDay(ZoneId.systemDefault())?.toInstant()?.plus(1, ChronoUnit.DAYS) ?: defaultEndDate
+            
+            val heartRateData = healthConnectManager.getHeartRateData(actualStartDate, actualEndDate)
+            val stepsData = healthConnectManager.getStepsData(actualStartDate, actualEndDate)
             
             val debugInfo = buildString {
                 appendLine("=== RAW HEALTH CONNECT DATA ===")
-                appendLine("Time Range: $weekStart to $now")
+                appendLine("Query Time Range:")
+                appendLine("  Start: $actualStartDate")
+                appendLine("  End: $actualEndDate")
+                appendLine("  Duration: ${java.time.Duration.between(actualStartDate, actualEndDate).toDays()} days")
+                appendLine("")
+                
+                // Add time range comparison
+                appendLine("=== TIME RANGE COMPARISON ===")
+                val weeklyStart = getWeekStart(now)
+                val dailyStart = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant()
+                val dailyEnd = dailyStart.plus(1, ChronoUnit.DAYS)
+                
+                appendLine("Weekly view range: $weeklyStart to $now")
+                appendLine("Today's range: $dailyStart to $dailyEnd")
+                appendLine("Current time: $now")
                 appendLine("")
                 
                 appendLine("HEART RATE DATA (${heartRateData.size} records):")
@@ -82,12 +112,30 @@ class ExploreViewModel @Inject constructor(
                     appendLine("  Start: ${record.startTime}")
                     appendLine("  End: ${record.endTime}")
                     appendLine("  Samples: ${record.samples.size}")
-                    record.samples.take(5).forEachIndexed { sampleIndex, sample ->
+                    
+                    // Show more detailed sample data
+                    record.samples.take(10).forEachIndexed { sampleIndex, sample ->
                         appendLine("    Sample ${sampleIndex + 1}: ${sample.beatsPerMinute} BPM at ${sample.time}")
                     }
-                    if (record.samples.size > 5) {
-                        appendLine("    ... and ${record.samples.size - 5} more samples")
+                    if (record.samples.size > 10) {
+                        appendLine("    ... and ${record.samples.size - 10} more samples")
                     }
+                    
+                    // Calculate zone distribution for this record
+                    val recordZones = mutableMapOf<String, Int>()
+                    record.samples.forEach { sample ->
+                        val bpm = sample.beatsPerMinute.toInt()
+                        val zoneId = when {
+                            bpm <= 94 -> "zone0"
+                            bpm <= 120 -> "zone1"
+                            bpm <= 140 -> "zone2"
+                            bpm <= 160 -> "zone3"
+                            bpm <= 180 -> "zone4"
+                            else -> "zone5"
+                        }
+                        recordZones[zoneId] = (recordZones[zoneId] ?: 0) + 1
+                    }
+                    appendLine("  Zone distribution (sample count): $recordZones")
                     appendLine("")
                 }
                 if (heartRateData.size > 10) {
@@ -108,7 +156,7 @@ class ExploreViewModel @Inject constructor(
                 }
                 
                 appendLine("")
-                appendLine("SUMMARY:")
+                appendLine("=== AGGREGATED ANALYSIS ===")
                 appendLine("Total Heart Rate Records: ${heartRateData.size}")
                 appendLine("Total Heart Rate Samples: ${heartRateData.sumOf { it.samples.size }}")
                 appendLine("Total Steps Records: ${stepsData.size}")
@@ -120,6 +168,44 @@ class ExploreViewModel @Inject constructor(
                 if (allBpm.isNotEmpty()) {
                     appendLine("Heart Rate Range: ${allBpm.minOrNull()} - ${allBpm.maxOrNull()} BPM")
                     appendLine("Average Heart Rate: ${allBpm.average().toInt()} BPM")
+                    
+                    // Zone analysis
+                    val zoneCount = mutableMapOf<String, Int>()
+                    allBpm.forEach { bpm ->
+                        val zoneId = when {
+                            bpm <= 94 -> "zone0"
+                            bpm <= 120 -> "zone1"
+                            bpm <= 140 -> "zone2"
+                            bpm <= 160 -> "zone3"
+                            bpm <= 180 -> "zone4"
+                            else -> "zone5"
+                        }
+                        zoneCount[zoneId] = (zoneCount[zoneId] ?: 0) + 1
+                    }
+                    appendLine("")
+                    appendLine("BPM Distribution by Zone:")
+                    zoneCount.forEach { (zone, count) ->
+                        val percentage = (count * 100.0 / allBpm.size).let { "%.1f".format(it) }
+                        appendLine("  $zone: $count samples ($percentage%)")
+                    }
+                }
+                
+                // Time range data analysis
+                appendLine("")
+                appendLine("=== TIME RANGE DATA ANALYSIS ===")
+                if (heartRateData.isNotEmpty()) {
+                    val firstSample = heartRateData.minByOrNull { it.startTime }?.startTime
+                    val lastSample = heartRateData.maxByOrNull { it.endTime }?.endTime
+                    appendLine("Data actually spans: $firstSample to $lastSample")
+                    
+                    // Check if today is included
+                    val todayStart = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant()
+                    val todayEnd = todayStart.plus(1, ChronoUnit.DAYS)
+                    val todayData = heartRateData.filter { record ->
+                        record.startTime.isBefore(todayEnd) && record.endTime.isAfter(todayStart)
+                    }
+                    appendLine("Records from today: ${todayData.size}")
+                    appendLine("Today samples: ${todayData.sumOf { it.samples.size }}")
                 }
             }
             
@@ -127,6 +213,12 @@ class ExploreViewModel @Inject constructor(
         } catch (e: Exception) {
             _uiState.value = _uiState.value.copy(rawDataDebugInfo = "Error loading debug info: ${e.message}")
         }
+    }
+    
+    private fun getWeekStart(timestamp: Instant): Instant {
+        val date = timestamp.atZone(ZoneId.systemDefault()).toLocalDate()
+        val weekStart = date.minusDays(date.dayOfWeek.value.toLong() - 1)
+        return weekStart.atStartOfDay(ZoneId.systemDefault()).toInstant()
     }
 }
 

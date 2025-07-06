@@ -18,6 +18,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.brainheartfitness.data.model.DailyHealthSummary
 import com.brainheartfitness.data.model.HeartRateSession
 import com.brainheartfitness.data.model.WeeklyHealthSummary
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
@@ -130,54 +131,264 @@ fun ExploreScreen(
     
     // Debug Dialog
     if (showDebugDialog) {
-        Dialog(onDismissRequest = { showDebugDialog = false }) {
-            Card(
-                modifier = Modifier.fillMaxSize(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
+        DebugDialog(
+            uiState = uiState,
+            onDismiss = { showDebugDialog = false },
+            onRefreshData = { startDate, endDate ->
+                viewModel.getRawDataDebugInfo(startDate, endDate)
+            },
+            onShowComparison = {
+                viewModel.getDataComparisonDebug()
+            }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DebugDialog(
+    uiState: ExploreUiState,
+    onDismiss: () -> Unit,
+    onRefreshData: (LocalDate?, LocalDate?) -> Unit,
+    onShowComparison: () -> Unit
+) {
+    // Calculate default date range (weekly view range)
+    val today = LocalDate.now()
+    val weekStart = today.minusDays(today.dayOfWeek.value.toLong() - 1)
+    
+    var startDate by remember { mutableStateOf(weekStart) }
+    var endDate by remember { mutableStateOf(today) }
+    var showStartDatePicker by remember { mutableStateOf(false) }
+    var showEndDatePicker by remember { mutableStateOf(false) }
+    
+    // Load data on first show
+    LaunchedEffect(Unit) {
+        onRefreshData(startDate, endDate)
+    }
+    
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier.fillMaxSize(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                    Text(
+                        text = "Raw Data Debug",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    
+                    IconButton(onClick = onDismiss) {
+                        Text("❌")
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                // Date Range Controls
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp)
                     ) {
                         Text(
-                            text = "Raw Data Debug",
-                            style = MaterialTheme.typography.headlineMedium,
+                            text = "Date Range Filter",
+                            style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
                         
-                        IconButton(onClick = { showDebugDialog = false }) {
-                            Text("❌")
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            // Start Date
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Start Date",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                OutlinedButton(
+                                    onClick = { showStartDatePicker = true },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(startDate.format(DateTimeFormatter.ofPattern("MMM dd")))
+                                }
+                            }
+                            
+                            // End Date
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "End Date",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                OutlinedButton(
+                                    onClick = { showEndDatePicker = true },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(endDate.format(DateTimeFormatter.ofPattern("MMM dd")))
+                                }
+                            }
+                            
+                            // Refresh Button
+                            Column(modifier = Modifier.weight(0.8f)) {
+                                Text(
+                                    text = "Update",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                Button(
+                                    onClick = { onRefreshData(startDate, endDate) },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("🔄")
+                                }
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        // Quick preset buttons
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Button(
+                                onClick = {
+                                    startDate = today
+                                    endDate = today
+                                    onRefreshData(startDate, endDate)
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("Today", style = MaterialTheme.typography.bodySmall)
+                            }
+                            
+                            Button(
+                                onClick = {
+                                    startDate = weekStart
+                                    endDate = today
+                                    onRefreshData(startDate, endDate)
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("This Week", style = MaterialTheme.typography.bodySmall)
+                            }
+                            
+                            Button(
+                                onClick = {
+                                    startDate = today.minusDays(6)
+                                    endDate = today
+                                    onRefreshData(startDate, endDate)
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("Last 7 Days", style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        // Analysis button
+                        Button(
+                            onClick = onShowComparison,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.secondary
+                            )
+                        ) {
+                            Text("🔍 Compare Daily vs Weekly Processing")
                         }
                     }
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    LaunchedEffect(showDebugDialog) {
-                        if (showDebugDialog) {
-                            viewModel.getRawDataDebugInfo()
-                        }
-                    }
-                    
-                    val scrollState = rememberScrollState()
-                    Text(
-                        text = uiState.rawDataDebugInfo ?: "Loading debug info...",
-                        fontFamily = FontFamily.Monospace,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .verticalScroll(scrollState)
-                    )
                 }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                val scrollState = rememberScrollState()
+                Text(
+                    text = uiState.rawDataDebugInfo ?: "Loading debug info...",
+                    fontFamily = FontFamily.Monospace,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(scrollState)
+                )
             }
         }
+    }
+    
+    // Date Pickers
+    if (showStartDatePicker) {
+        DatePickerDialog(
+            selectedDate = startDate,
+            onDateSelected = { date ->
+                startDate = date
+                showStartDatePicker = false
+            },
+            onDismiss = { showStartDatePicker = false }
+        )
+    }
+    
+    if (showEndDatePicker) {
+        DatePickerDialog(
+            selectedDate = endDate,
+            onDateSelected = { date ->
+                endDate = date
+                showEndDatePicker = false
+            },
+            onDismiss = { showEndDatePicker = false }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DatePickerDialog(
+    selectedDate: LocalDate,
+    onDateSelected: (LocalDate) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val datePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = selectedDate.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+    )
+    
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        val instant = java.time.Instant.ofEpochMilli(millis)
+                        val localDate = instant.atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                        onDateSelected(localDate)
+                    }
+                }
+            ) {
+                Text("OK")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    ) {
+        DatePicker(state = datePickerState)
     }
 }
 

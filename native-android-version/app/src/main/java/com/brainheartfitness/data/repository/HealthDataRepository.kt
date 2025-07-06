@@ -30,13 +30,16 @@ class HealthDataRepository @Inject constructor(
     suspend fun getWeeklyHealthSummary(): WeeklyHealthSummary = withContext(Dispatchers.IO) {
         val now = Instant.now()
         val weekStart = getWeekStart(now)
+        // Use end of today instead of current moment to ensure consistent data capture
+        val today = LocalDate.now()
+        val weekEnd = today.atStartOfDay(ZoneId.systemDefault()).toInstant().plus(1, ChronoUnit.DAYS)
         
-        Log.d(TAG, "Fetching weekly health summary from $weekStart to $now")
+        Log.d(TAG, "Fetching weekly health summary from $weekStart to $weekEnd")
         
         try {
             // Get real data from Health Connect
-            val heartRateData = healthConnectManager.getHeartRateData(weekStart, now)
-            val stepsData = healthConnectManager.getStepsData(weekStart, now)
+            val heartRateData = healthConnectManager.getHeartRateData(weekStart, weekEnd)
+            val stepsData = healthConnectManager.getStepsData(weekStart, weekEnd)
             
             // Process heart rate data into zone minutes
             val zoneBreakdown = processHeartRateIntoZones(heartRateData)
@@ -421,6 +424,97 @@ class HealthDataRepository @Inject constructor(
         val date = timestamp.atZone(ZoneId.systemDefault()).toLocalDate()
         val weekStart = date.minusDays(date.dayOfWeek.value.toLong() - 1)
         return weekStart.atStartOfDay(ZoneId.systemDefault()).toInstant()
+    }
+    
+    // Debug method to compare daily vs weekly data processing
+    suspend fun getDataComparisonDebug(): String = withContext(Dispatchers.IO) {
+        val today = LocalDate.now()
+        val now = Instant.now()
+        val weekStart = getWeekStart(now)
+        
+        // Daily range
+        val dailyStart = today.atStartOfDay(ZoneId.systemDefault()).toInstant()
+        val dailyEnd = dailyStart.plus(1, ChronoUnit.DAYS)
+        
+        // Weekly range  
+        val weeklyStart = weekStart
+        val weeklyEnd = now
+        
+        return@withContext buildString {
+            appendLine("=== DAILY VS WEEKLY DATA COMPARISON ===")
+            appendLine("")
+            
+            appendLine("TIME RANGES:")
+            appendLine("Daily range:  $dailyStart to $dailyEnd")
+            appendLine("Weekly range: $weeklyStart to $weeklyEnd")
+            appendLine("Today: $today")
+            appendLine("Current time: $now")
+            appendLine("")
+            
+            try {
+                // Get data for both ranges
+                val dailyHeartRate = healthConnectManager.getHeartRateData(dailyStart, dailyEnd)
+                val weeklyHeartRate = healthConnectManager.getHeartRateData(weeklyStart, weeklyEnd)
+                
+                appendLine("DATA COUNTS:")
+                appendLine("Daily heart rate records: ${dailyHeartRate.size}")
+                appendLine("Weekly heart rate records: ${weeklyHeartRate.size}")
+                appendLine("Daily heart rate samples: ${dailyHeartRate.sumOf { it.samples.size }}")
+                appendLine("Weekly heart rate samples: ${weeklyHeartRate.sumOf { it.samples.size }}")
+                appendLine("")
+                
+                // Process both using same logic
+                val dailyZones = processHeartRateIntoZones(dailyHeartRate)
+                val weeklyZones = processHeartRateIntoZones(weeklyHeartRate)
+                
+                appendLine("ZONE BREAKDOWN:")
+                appendLine("Daily zones:  $dailyZones")
+                appendLine("Weekly zones: $weeklyZones")
+                appendLine("")
+                
+                // Check if today's data is included in weekly data
+                val todayDataInWeekly = weeklyHeartRate.filter { record ->
+                    record.startTime.isBefore(dailyEnd) && record.endTime.isAfter(dailyStart)
+                }
+                
+                appendLine("TODAY'S DATA IN WEEKLY:")
+                appendLine("Records from today in weekly data: ${todayDataInWeekly.size}")
+                appendLine("Samples from today in weekly data: ${todayDataInWeekly.sumOf { it.samples.size }}")
+                appendLine("")
+                
+                // Analyze the time coverage
+                if (weeklyHeartRate.isNotEmpty()) {
+                    val firstWeeklyRecord = weeklyHeartRate.minByOrNull { it.startTime }
+                    val lastWeeklyRecord = weeklyHeartRate.maxByOrNull { it.endTime }
+                    appendLine("Weekly data actually spans: ${firstWeeklyRecord?.startTime} to ${lastWeeklyRecord?.endTime}")
+                }
+                
+                if (dailyHeartRate.isNotEmpty()) {
+                    val firstDailyRecord = dailyHeartRate.minByOrNull { it.startTime }
+                    val lastDailyRecord = dailyHeartRate.maxByOrNull { it.endTime }
+                    appendLine("Daily data actually spans: ${firstDailyRecord?.startTime} to ${lastDailyRecord?.endTime}")
+                }
+                
+                appendLine("")
+                
+                // Check if weekly range properly includes today
+                val isWeeklyRangeIncludingToday = weeklyEnd.isAfter(dailyStart)
+                appendLine("Weekly range includes today: $isWeeklyRangeIncludingToday")
+                
+                // Check the end time issue
+                val timeDifference = java.time.Duration.between(now, dailyEnd).toHours()
+                appendLine("Hours between 'now' and end of today: $timeDifference")
+                
+                if (timeDifference > 0) {
+                    appendLine("⚠️  POTENTIAL ISSUE: Weekly data ends at 'now' ($now)")
+                    appendLine("⚠️  but daily data includes full day until ($dailyEnd)")
+                    appendLine("⚠️  Weekly data might miss ${timeDifference}h of today's data!")
+                }
+                
+            } catch (e: Exception) {
+                appendLine("ERROR: ${e.message}")
+            }
+        }
     }
     
     private fun generateDummySessions(count: Int = 3): List<HeartRateSession> {

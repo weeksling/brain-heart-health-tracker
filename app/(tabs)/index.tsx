@@ -13,12 +13,14 @@ export default function MinimalTestScreen() {
 
   const handleCrashTest = () => {
     // Intentionally throw an error to test error handling
-    throw new Error('Test error to verify error handling is working');
+    setTimeout(() => {
+      throw new Error('🧪 Delayed test error - should be caught by Ultimate Error Handler');
+    }, 100);
   };
 
   const handleAsyncCrashTest = async () => {
-    // Test async error handling
-    throw new Error('Test async error to verify error handling is working');
+    // Test promise rejection
+    return Promise.reject(new Error('🧪 Promise rejection test - should be caught by Ultimate Error Handler'));
   };
 
   return (

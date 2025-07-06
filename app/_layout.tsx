@@ -7,7 +7,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
 
-import GlobalErrorHandler from "@/components/GlobalErrorHandler";
+import SuperSafeErrorHandler from "@/components/SuperSafeErrorHandler";
 import { useColorScheme } from "@/hooks/useColorScheme";
 
 export default function RootLayout() {
@@ -22,7 +22,7 @@ export default function RootLayout() {
   }
 
   return (
-    <GlobalErrorHandler>
+    <SuperSafeErrorHandler>
       <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -30,6 +30,6 @@ export default function RootLayout() {
         </Stack>
         <StatusBar style="auto" />
       </ThemeProvider>
-    </GlobalErrorHandler>
+    </SuperSafeErrorHandler>
   );
 }

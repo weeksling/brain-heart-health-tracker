@@ -1,0 +1,64 @@
+# Version control
+.git
+.gitignore
+
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Build outputs
+build/
+dist/
+*/build/
+*/dist/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# React Native / Expo specific
+.expo/
+.expo-shared/
+expo-env.d.ts
+
+# Android build files
+**/android/build/
+**/android/app/build/
+**/android/.gradle/
+**/android/local.properties
+
+# Gradle
+.gradle/
+*/gradle/
+
+# Documentation
+README.md
+*.md
+
+# Test files
+__tests__/
+*.test.js
+*.spec.js
+
+# Coverage reports
+coverage/

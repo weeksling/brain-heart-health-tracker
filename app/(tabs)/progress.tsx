@@ -2,6 +2,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Colors } from "@/constants/Colors";
 import { useColorScheme } from "@/hooks/useColorScheme";
+import { debugLogger } from "@/services/DebugLogger";
 import { useEffect, useState } from "react";
 import {
   Alert,
@@ -36,6 +37,14 @@ interface WeeklyHeartRateSummary {
   minHeartRate: number;
 }
 
+interface DebugLog {
+  timestamp: string;
+  level: string;
+  category: string;
+  message: string;
+  data?: string;
+}
+
 export default function ProgressScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "light"];
@@ -45,116 +54,257 @@ export default function ProgressScreen() {
   const [error, setError] = useState<string | null>(null);
   const [healthConnectAvailable, setHealthConnectAvailable] = useState(false);
   const [healthConnectError, setHealthConnectError] = useState<string | null>(null);
+  
+  // Debug states
+  const [currentStep, setCurrentStep] = useState<string>("Starting...");
+  const [debugLogs, setDebugLogs] = useState<DebugLog[]>([]);
+  const [showDebugLogs, setShowDebugLogs] = useState(false);
 
   const screenWidth = Dimensions.get("window").width;
 
   useEffect(() => {
-    // Use a very defensive initialization approach
-    const safeInitialize = async () => {
-      try {
-        console.log("Progress: Starting ultra-safe initialization...");
-        setLoading(true);
-        setError(null);
-        setHealthConnectError(null);
-
-        // Check platform first
-        if (Platform.OS !== "android") {
-          console.log("Progress: Not Android, using demo data");
-          setHealthConnectError("Android device required for Health Connect");
-          setFallbackData();
-          setLoading(false);
-          return;
-        }
-
-        // Try to dynamically import and initialize Health Connect with extreme safety
-        let healthServiceInitialized = false;
-        try {
-          console.log("Progress: Attempting dynamic Health Connect import...");
-          
-          // Try to import Health Connect service safely
-          let healthDataService: any = null;
-          try {
-            const healthModule = require("@/services/HealthDataService");
-            healthDataService = healthModule.healthDataService;
-          } catch (requireError) {
-            throw new Error('Health Connect module not available');
-          }
-
-          console.log("Progress: Health service imported successfully");
-
-          // Try to initialize with very short timeout
-          healthServiceInitialized = await Promise.race([
-            healthDataService.initialize(),
-            new Promise<boolean>((resolve) => 
-              setTimeout(() => {
-                console.warn("Progress: Health service init timeout");
-                resolve(false);
-              }, 5000)
-            )
-          ]);
-
-          console.log("Progress: Health service initialization result:", healthServiceInitialized);
-
-          if (healthServiceInitialized) {
-            setHealthConnectAvailable(healthDataService.isHealthConnectAvailable());
-            console.log("Progress: Health Connect available:", healthDataService.isHealthConnectAvailable());
-
-            // Try to fetch real data with timeout
-            try {
-              const weekData = await Promise.race([
-                healthDataService.getWeeklyHeartRateData(),
-                new Promise<WeeklyHeartRateSummary>((_, reject) => 
-                  setTimeout(() => reject(new Error('Data fetch timeout')), 8000)
-                )
-              ]);
-              setWeeklyData(weekData);
-
-              const dailyData = await Promise.race([
-                getDailyBreakdownForWeek(healthDataService),
-                new Promise<DailyProgress[]>((_, reject) => 
-                  setTimeout(() => reject(new Error('Daily data timeout')), 8000)
-                )
-              ]);
-              setDailyProgress(dailyData);
-              console.log("Progress: Real data loaded successfully");
-            } catch (dataError) {
-              console.warn("Progress: Failed to fetch real data, using fallback:", dataError);
-              setFallbackData();
-            }
-          } else {
-            console.log("Progress: Health service not initialized, using fallback");
-            setHealthConnectError("Health Connect initialization failed");
-            setFallbackData();
-          }
-        } catch (importError: any) {
-          console.error("Progress: Health Connect import/init failed:", importError);
-          setHealthConnectError(`Health Connect error: ${importError?.message || 'Unknown error'}`);
-          setFallbackData();
-        }
-      } catch (criticalError: any) {
-        console.error("Progress: Critical initialization error:", criticalError);
-        setError(`Initialization failed: ${criticalError?.message || 'Unknown error'}`);
-        setFallbackData();
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    // Wrap the entire initialization in a timeout to prevent hanging
-    const initTimeout = setTimeout(() => {
-      console.error("Progress: Initialization completely timed out");
-      setError("Initialization timed out");
-      setFallbackData();
-      setLoading(false);
-    }, 15000);
-
-    safeInitialize().finally(() => {
-      clearTimeout(initTimeout);
-    });
+    loadPreviousLogs();
+    initializeWithDetailedLogging();
   }, []);
 
+  const loadPreviousLogs = async () => {
+    try {
+      const logs = await debugLogger.getRecentLogs(20);
+      setDebugLogs(logs);
+      
+      // Check if there were any crashes in previous sessions
+      const crashLogs = logs.filter(log => log.message.includes('CRASH') || log.level === 'ERROR');
+      if (crashLogs.length > 0) {
+        debugLogger.step('PROGRESS_INIT', 'Found previous crash logs', { crashCount: crashLogs.length });
+      }
+    } catch (error) {
+      console.error('Failed to load previous logs:', error);
+    }
+  };
+
+  const updateStep = (step: string, data?: any) => {
+    setCurrentStep(step);
+    debugLogger.step('PROGRESS_FLOW', step, data);
+  };
+
+  const initializeWithDetailedLogging = async () => {
+    try {
+      debugLogger.step('PROGRESS_INIT', 'Progress screen mounted');
+      updateStep("🚀 Starting Progress Screen Initialization");
+      
+      setLoading(true);
+      setError(null);
+      setHealthConnectError(null);
+
+      // Step 1: Platform Check
+      updateStep("📱 Checking Platform Compatibility");
+      await new Promise(resolve => setTimeout(resolve, 500)); // Allow UI to update
+      
+      if (Platform.OS !== "android") {
+        debugLogger.warn('PROGRESS_PLATFORM', 'Non-Android platform detected', { platform: Platform.OS });
+        updateStep("❌ Non-Android Platform Detected");
+        setHealthConnectError("Android device required for Health Connect");
+        setFallbackData();
+        setLoading(false);
+        return;
+      }
+      
+      debugLogger.step('PROGRESS_PLATFORM', 'Android platform confirmed');
+      updateStep("✅ Android Platform Confirmed");
+
+      // Step 2: Check Health Connect Module Availability
+      updateStep("🔍 Checking Health Connect Module Availability");
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      let healthDataService: any = null;
+      try {
+        debugLogger.step('PROGRESS_MODULE', 'Attempting to require Health Connect module');
+        const healthModule = require("@/services/HealthDataService");
+        healthDataService = healthModule.healthDataService;
+        debugLogger.step('PROGRESS_MODULE', 'Health Connect module loaded successfully');
+        updateStep("✅ Health Connect Module Loaded");
+      } catch (requireError: any) {
+        debugLogger.error('PROGRESS_MODULE', 'Failed to load Health Connect module', requireError);
+        updateStep("❌ Health Connect Module Failed to Load");
+        setHealthConnectError(`Module load error: ${requireError?.message || 'Unknown'}`);
+        setFallbackData();
+        setLoading(false);
+        return;
+      }
+
+      // Step 3: Check if Health Connect is available on device
+      updateStep("🔍 Checking Health Connect Availability on Device");
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      let healthConnectReady = false;
+      try {
+        debugLogger.step('PROGRESS_AVAILABILITY', 'Checking Health Connect availability');
+        healthConnectReady = healthDataService.isReady();
+        debugLogger.step('PROGRESS_AVAILABILITY', 'Health Connect ready check completed', { ready: healthConnectReady });
+        updateStep(healthConnectReady ? "✅ Health Connect Available" : "⚠️ Health Connect Not Ready");
+      } catch (availabilityError: any) {
+        debugLogger.error('PROGRESS_AVAILABILITY', 'Health Connect availability check failed', availabilityError);
+        updateStep("❌ Health Connect Availability Check Failed");
+        setHealthConnectError(`Availability check failed: ${availabilityError?.message || 'Unknown'}`);
+        setFallbackData();
+        setLoading(false);
+        return;
+      }
+
+      // Step 4: Initialize Health Connect
+      updateStep("🔧 Initializing Health Connect Service");
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      let healthServiceInitialized = false;
+      try {
+        debugLogger.step('PROGRESS_INIT_HC', 'Starting Health Connect initialization');
+        healthServiceInitialized = await Promise.race([
+          healthDataService.initialize(),
+          new Promise<boolean>((resolve) => 
+            setTimeout(() => {
+              debugLogger.warn('PROGRESS_INIT_HC', 'Health Connect initialization timeout');
+              resolve(false);
+            }, 8000)
+          )
+        ]);
+        
+        debugLogger.step('PROGRESS_INIT_HC', 'Health Connect initialization completed', { 
+          initialized: healthServiceInitialized 
+        });
+        updateStep(healthServiceInitialized ? "✅ Health Connect Initialized" : "⚠️ Health Connect Initialization Timeout");
+      } catch (initError: any) {
+        debugLogger.error('PROGRESS_INIT_HC', 'Health Connect initialization failed', initError);
+        updateStep("❌ Health Connect Initialization Failed");
+        setHealthConnectError(`Initialization failed: ${initError?.message || 'Unknown'}`);
+        setFallbackData();
+        setLoading(false);
+        return;
+      }
+
+      if (!healthServiceInitialized) {
+        debugLogger.warn('PROGRESS_INIT_HC', 'Health Connect not initialized, using fallback');
+        updateStep("⚠️ Using Fallback Data (Initialization Failed)");
+        setHealthConnectError("Health Connect initialization failed or timed out");
+        setFallbackData();
+        setLoading(false);
+        return;
+      }
+
+      // Step 5: Check Health Connect Status
+      updateStep("📋 Checking Health Connect Status");
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      try {
+        const isHealthConnectAvailable = healthDataService.isHealthConnectAvailable();
+        debugLogger.step('PROGRESS_STATUS', 'Health Connect status checked', { 
+          available: isHealthConnectAvailable 
+        });
+        setHealthConnectAvailable(isHealthConnectAvailable);
+        updateStep(isHealthConnectAvailable ? "✅ Health Connect Ready" : "⚠️ Health Connect Not Available");
+      } catch (statusError: any) {
+        debugLogger.error('PROGRESS_STATUS', 'Health Connect status check failed', statusError);
+        updateStep("❌ Health Connect Status Check Failed");
+        setHealthConnectError(`Status check failed: ${statusError?.message || 'Unknown'}`);
+        setFallbackData();
+        setLoading(false);
+        return;
+      }
+
+      // Step 6: Check Permissions
+      updateStep("🔐 Checking Health Connect Permissions");
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      try {
+        debugLogger.step('PROGRESS_PERMISSIONS', 'Checking Health Connect permissions');
+        const permissions = await Promise.race([
+          healthDataService.getPermissionStatus(),
+          new Promise<any>((resolve) => 
+            setTimeout(() => {
+              debugLogger.warn('PROGRESS_PERMISSIONS', 'Permission check timeout');
+              resolve({ healthConnect: false, bodySensors: false });
+            }, 5000)
+          )
+        ]);
+        
+        debugLogger.step('PROGRESS_PERMISSIONS', 'Permission status retrieved', permissions);
+        updateStep(`🔐 Permissions: HC=${permissions.healthConnect ? '✅' : '❌'} Sensors=${permissions.bodySensors ? '✅' : '❌'}`);
+        
+        if (!permissions.healthConnect) {
+          debugLogger.warn('PROGRESS_PERMISSIONS', 'Health Connect permissions not granted');
+          updateStep("⚠️ Health Connect Permissions Required");
+          // Continue anyway to test if we can request permissions
+        }
+      } catch (permError: any) {
+        debugLogger.error('PROGRESS_PERMISSIONS', 'Permission check failed', permError);
+        updateStep("❌ Permission Check Failed");
+        // Continue anyway
+      }
+
+      // Step 7: Fetch Real Data
+      updateStep("📊 Fetching Health Data");
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      try {
+        debugLogger.step('PROGRESS_DATA', 'Starting health data fetch');
+        
+        // Try to get weekly data
+        const weekData = await Promise.race([
+          healthDataService.getWeeklyHeartRateData(),
+          new Promise<WeeklyHeartRateSummary>((_, reject) => 
+            setTimeout(() => {
+              debugLogger.warn('PROGRESS_DATA', 'Weekly data fetch timeout');
+              reject(new Error('Weekly data timeout'));
+            }, 10000)
+          )
+        ]);
+        
+        debugLogger.step('PROGRESS_DATA', 'Weekly data fetched successfully', { 
+          totalMinutes: weekData.totalMinutes 
+        });
+        setWeeklyData(weekData);
+        updateStep("✅ Weekly Data Loaded");
+
+        // Try to get daily data
+        const dailyData = await Promise.race([
+          getDailyBreakdownForWeek(healthDataService),
+          new Promise<DailyProgress[]>((_, reject) => 
+            setTimeout(() => {
+              debugLogger.warn('PROGRESS_DATA', 'Daily data fetch timeout');
+              reject(new Error('Daily data timeout'));
+            }, 10000)
+          )
+        ]);
+        
+        debugLogger.step('PROGRESS_DATA', 'Daily data fetched successfully', { 
+          days: dailyData.length 
+        });
+        setDailyProgress(dailyData);
+        updateStep("✅ All Data Loaded Successfully");
+        
+      } catch (dataError: any) {
+        debugLogger.error('PROGRESS_DATA', 'Health data fetch failed', dataError);
+        updateStep("⚠️ Data Fetch Failed - Using Fallback");
+        setHealthConnectError(`Data fetch failed: ${dataError?.message || 'Unknown'}`);
+        setFallbackData();
+      }
+
+      debugLogger.step('PROGRESS_COMPLETE', 'Progress screen initialization completed successfully');
+      updateStep("🎉 Initialization Complete");
+      
+    } catch (criticalError: any) {
+      debugLogger.error('PROGRESS_CRITICAL', 'Critical error in progress initialization', criticalError);
+      await debugLogger.logCrash('PROGRESS_CRITICAL', criticalError, { step: currentStep });
+      updateStep("💥 Critical Error Occurred");
+      setError(`Critical error: ${criticalError?.message || 'Unknown error'}`);
+      setFallbackData();
+    } finally {
+      setLoading(false);
+      debugLogger.step('PROGRESS_FINAL', 'Progress screen loading completed');
+    }
+  };
+
   const setFallbackData = () => {
-    console.log("Progress: Setting fallback data");
+    debugLogger.step('PROGRESS_FALLBACK', 'Setting fallback demo data');
     const fallbackDaily = [
       { day: "Mon", date: "2024-01-01", zone2PlusMinutes: 25 },
       { day: "Tue", date: "2024-01-02", zone2PlusMinutes: 30 },
@@ -187,6 +337,10 @@ export default function ProgressScreen() {
             const zone2PlusMinutes = 
               (dayData.zoneBreakdown.zone2 || 0) + 
               (dayData.zoneBreakdown.zone3 || 0);
+            debugLogger.step('PROGRESS_DAILY', `${dayNames[i]} data loaded`, { 
+              date: dateString, 
+              minutes: zone2PlusMinutes 
+            });
             return {
               day: dayNames[i],
               date: dateString,
@@ -195,7 +349,7 @@ export default function ProgressScreen() {
           }),
           new Promise<DailyProgress>((resolve) => 
             setTimeout(() => {
-              console.warn(`Progress: Daily data timeout for ${dayNames[i]}`);
+              debugLogger.warn('PROGRESS_DAILY', `${dayNames[i]} data timeout`);
               resolve({
                 day: dayNames[i],
                 date: dateString,
@@ -204,7 +358,7 @@ export default function ProgressScreen() {
             }, 3000)
           )
         ]).catch((error: any) => {
-          console.error(`Progress: Error fetching ${dayNames[i]} data:`, error);
+          debugLogger.error('PROGRESS_DAILY', `${dayNames[i]} data error`, error);
           return {
             day: dayNames[i],
             date: dateString,
@@ -225,18 +379,34 @@ export default function ProgressScreen() {
   };
 
   const handleRetryHealthConnect = async () => {
-    console.log("Progress: User requested Health Connect retry");
+    debugLogger.step('PROGRESS_RETRY', 'User requested Health Connect retry');
     setLoading(true);
     setError(null);
     setHealthConnectError(null);
+    setCurrentStep("🔄 Retrying...");
     
-    // Small delay to show loading state
     await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Re-run initialization
-    const event = { target: { value: 'retry' } };
-    // Trigger useEffect again by updating a state that's in the dependency array
-    setHealthConnectAvailable(false);
+    await initializeWithDetailedLogging();
+  };
+
+  const handleShowDebugLogs = async () => {
+    try {
+      const logs = await debugLogger.getRecentLogs(50);
+      setDebugLogs(logs);
+      setShowDebugLogs(!showDebugLogs);
+    } catch (error) {
+      Alert.alert("Error", "Failed to load debug logs");
+    }
+  };
+
+  const handleClearLogs = async () => {
+    try {
+      await debugLogger.clearLogs();
+      setDebugLogs([]);
+      Alert.alert("Success", "Debug logs cleared");
+    } catch (error) {
+      Alert.alert("Error", "Failed to clear debug logs");
+    }
   };
 
   const handleConnectHealthData = () => {
@@ -254,6 +424,10 @@ export default function ProgressScreen() {
         { 
           text: "Retry", 
           onPress: handleRetryHealthConnect
+        },
+        {
+          text: "Debug Logs",
+          onPress: handleShowDebugLogs
         }
       ]
     );
@@ -286,6 +460,53 @@ export default function ProgressScreen() {
 
   const calculateWeeklyTotal = () => {
     return dailyProgress.reduce((sum, day) => sum + day.zone2PlusMinutes, 0);
+  };
+
+  const renderDebugLogs = () => {
+    if (!showDebugLogs) return null;
+
+    return (
+      <ThemedView style={styles.debugContainer}>
+        <View style={styles.debugHeader}>
+          <ThemedText type="subtitle" style={styles.debugTitle}>
+            Debug Logs ({debugLogs.length})
+          </ThemedText>
+          <View style={styles.debugButtons}>
+            <TouchableOpacity
+              style={[styles.debugButton, { backgroundColor: colors.tint }]}
+              onPress={handleClearLogs}
+            >
+              <ThemedText style={styles.debugButtonText}>Clear</ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.debugButton, { backgroundColor: '#666' }]}
+              onPress={() => setShowDebugLogs(false)}
+            >
+              <ThemedText style={styles.debugButtonText}>Hide</ThemedText>
+            </TouchableOpacity>
+          </View>
+        </View>
+        <ScrollView style={styles.debugLogsList} nestedScrollEnabled>
+          {debugLogs.slice(-20).map((log, index) => (
+            <View key={index} style={styles.debugLogItem}>
+              <ThemedText style={[
+                styles.debugLogText,
+                { color: log.level === 'ERROR' ? '#F44336' : 
+                         log.level === 'WARN' ? '#FF9800' :
+                         log.level === 'STEP' ? '#4CAF50' : colors.text }
+              ]}>
+                [{log.timestamp.split('T')[1]?.split('.')[0]}] {log.level} {log.category}: {log.message}
+              </ThemedText>
+              {log.data && (
+                <ThemedText style={styles.debugLogData}>
+                  {log.data}
+                </ThemedText>
+              )}
+            </View>
+          ))}
+        </ScrollView>
+      </ThemedView>
+    );
   };
 
   const renderChart = () => {
@@ -455,11 +676,16 @@ export default function ProgressScreen() {
         style={[styles.container, { backgroundColor: colors.background }]}
       >
         <View style={styles.centerContent}>
-          <ThemedText>Loading health data...</ThemedText>
-          <ThemedText style={styles.loadingSubtext}>
-            Initializing Health Connect...
-          </ThemedText>
+          <ThemedText type="title" style={styles.loadingTitle}>Loading Health Data</ThemedText>
+          <ThemedText style={styles.currentStep}>{currentStep}</ThemedText>
+          <TouchableOpacity
+            style={[styles.debugButton, { backgroundColor: colors.tint, marginTop: 20 }]}
+            onPress={handleShowDebugLogs}
+          >
+            <ThemedText style={styles.debugButtonText}>Show Debug Logs</ThemedText>
+          </TouchableOpacity>
         </View>
+        {renderDebugLogs()}
       </SafeAreaView>
     );
   }
@@ -471,13 +697,23 @@ export default function ProgressScreen() {
       >
         <View style={styles.centerContent}>
           <ThemedText style={styles.errorText}>{error}</ThemedText>
-          <TouchableOpacity
-            style={[styles.retryButton, { backgroundColor: colors.tint }]}
-            onPress={handleRetryHealthConnect}
-          >
-            <ThemedText style={styles.retryButtonText}>Retry</ThemedText>
-          </TouchableOpacity>
+          <ThemedText style={styles.currentStep}>Last Step: {currentStep}</ThemedText>
+          <View style={styles.errorButtons}>
+            <TouchableOpacity
+              style={[styles.retryButton, { backgroundColor: colors.tint }]}
+              onPress={handleRetryHealthConnect}
+            >
+              <ThemedText style={styles.retryButtonText}>Retry</ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.debugButton, { backgroundColor: '#666' }]}
+              onPress={handleShowDebugLogs}
+            >
+              <ThemedText style={styles.debugButtonText}>Debug Logs</ThemedText>
+            </TouchableOpacity>
+          </View>
         </View>
+        {renderDebugLogs()}
       </SafeAreaView>
     );
   }
@@ -498,6 +734,9 @@ export default function ProgressScreen() {
           <ThemedText style={styles.subtitle}>
             Track your weekly Zone 2+ exercise minutes
           </ThemedText>
+          <ThemedText style={styles.lastStep}>
+            Status: {currentStep}
+          </ThemedText>
         </View>
 
         {(!healthConnectAvailable || healthConnectError) && (
@@ -513,19 +752,28 @@ export default function ProgressScreen() {
             <ThemedText style={styles.bannerSubtext}>
               Showing demonstration data
             </ThemedText>
-            <TouchableOpacity
-              style={[styles.connectButton, { backgroundColor: colors.tint }]}
-              onPress={handleConnectHealthData}
-            >
-              <ThemedText style={styles.connectButtonText}>
-                Check Health Connect
-              </ThemedText>
-            </TouchableOpacity>
+            <View style={styles.bannerButtons}>
+              <TouchableOpacity
+                style={[styles.connectButton, { backgroundColor: colors.tint }]}
+                onPress={handleConnectHealthData}
+              >
+                <ThemedText style={styles.connectButtonText}>
+                  Check Health Connect
+                </ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.debugButton, { backgroundColor: '#666' }]}
+                onPress={handleShowDebugLogs}
+              >
+                <ThemedText style={styles.debugButtonText}>Debug</ThemedText>
+              </TouchableOpacity>
+            </View>
           </ThemedView>
         )}
 
         {renderChart()}
         {renderDailyBreakdown()}
+        {renderDebugLogs()}
 
         <View style={styles.infoContainer}>
           <ThemedText style={styles.infoText}>
@@ -553,11 +801,29 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 20,
   },
-  loadingSubtext: {
-    fontSize: 14,
-    opacity: 0.7,
-    marginTop: 8,
+  loadingTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 16,
     textAlign: "center",
+  },
+  currentStep: {
+    fontSize: 16,
+    textAlign: "center",
+    marginTop: 8,
+    color: "#666",
+    fontFamily: "monospace",
+  },
+  lastStep: {
+    fontSize: 12,
+    marginTop: 8,
+    color: "#666",
+    fontFamily: "monospace",
+  },
+  errorButtons: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 20,
   },
   header: {
     padding: 16,
@@ -594,16 +860,72 @@ const styles = StyleSheet.create({
     color: "#1976D2",
     opacity: 0.8,
   },
+  bannerButtons: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 12,
+  },
   connectButton: {
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
-    alignSelf: "center",
   },
   connectButtonText: {
     color: "white",
     fontSize: 14,
     fontWeight: "600",
+  },
+  debugContainer: {
+    margin: 16,
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+    maxHeight: 300,
+  },
+  debugHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  debugTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  debugButtons: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  debugButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  debugButtonText: {
+    color: "white",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  debugLogsList: {
+    maxHeight: 200,
+  },
+  debugLogItem: {
+    marginBottom: 8,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.1)",
+  },
+  debugLogText: {
+    fontSize: 11,
+    fontFamily: "monospace",
+  },
+  debugLogData: {
+    fontSize: 10,
+    fontFamily: "monospace",
+    opacity: 0.7,
+    marginTop: 2,
   },
   chartContainer: {
     margin: 16,

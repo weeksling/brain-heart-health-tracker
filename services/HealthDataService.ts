@@ -374,6 +374,25 @@ export class HealthDataService {
   }
 
   /**
+   * Request Health Connect permissions (public method)
+   */
+  async requestPermissions(): Promise<boolean> {
+    if (!this.healthConnectAvailable) {
+      console.warn(
+        "HealthDataService: Health Connect not available, cannot request permissions"
+      );
+      return false;
+    }
+
+    try {
+      return await this.requestHealthConnectPermissions();
+    } catch (error) {
+      console.error("HealthDataService: Permission request failed", error);
+      return false;
+    }
+  }
+
+  /**
    * Get heart rate data for a specific time range from Health Connect
    */
   async getHeartRateData(

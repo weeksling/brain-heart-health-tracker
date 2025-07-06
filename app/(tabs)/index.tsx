@@ -1,4 +1,5 @@
 import { debugLogger } from '@/services/DebugLogger';
+import Clipboard from '@react-native-clipboard/clipboard';
 import React, { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -86,15 +87,19 @@ export default function MinimalTestScreen() {
   const handleExportLogs = async () => {
     try {
       const exportedLogs = await debugLogger.exportLogs();
+      
+      // Copy to clipboard
+      Clipboard.setString(exportedLogs);
+      
       Alert.alert(
         "Debug Logs Exported",
-        `Found ${debugLogs.length} log entries. Logs are ready for sharing.`,
+        `Found ${debugLogs.length} log entries. Logs have been copied to clipboard and are ready for sharing.`,
         [
           { text: "OK" },
           {
             text: "Show Sample",
             onPress: () => {
-              const sample = exportedLogs.split('\n').slice(-10).join('\n');
+              const sample = exportedLogs.split('\n').slice(-15).join('\n');
               Alert.alert("Recent Logs Sample", sample);
             }
           }

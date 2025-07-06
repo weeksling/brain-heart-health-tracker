@@ -50,10 +50,10 @@ const INITIALIZATION_STEPS = [
   { id: 'start', title: '🚀 Starting Progress Screen Initialization', description: 'Preparing to initialize Health Connect integration' },
   { id: 'platform', title: '📱 Checking Platform Compatibility', description: 'Verifying Android platform and compatibility' },
   { id: 'module', title: '🔍 Loading Health Connect Module', description: 'Attempting to require Health Connect service module' },
+  { id: 'permissions', title: '🔐 Requesting Health Connect Permissions', description: 'Requesting Health Connect permissions BEFORE initialization' },
   { id: 'availability', title: '🔍 Checking Health Connect Availability', description: 'Testing if Health Connect is available on this device' },
   { id: 'initialize', title: '🔧 Initializing Health Connect Service', description: 'Starting Health Connect SDK initialization' },
   { id: 'status', title: '📋 Checking Health Connect Status', description: 'Verifying Health Connect service status' },
-  { id: 'permissions', title: '🔐 Checking Health Connect Permissions', description: 'Requesting and verifying Health Connect permissions' },
   { id: 'data', title: '📊 Fetching Health Data', description: 'Attempting to load real health data from Health Connect' },
   { id: 'complete', title: '🎉 Initialization Complete', description: 'All steps completed successfully' },
 ];
@@ -108,7 +108,14 @@ export default function ProgressScreen() {
     if (!currentStep) return;
 
     setIsStepRunning(true);
-    debugLogger.step('PROGRESS_MANUAL', `Starting step: ${currentStep.title}`);
+    
+    // Immediately save step start to logs with crash protection
+    try {
+      await debugLogger.step('PROGRESS_MANUAL', `Starting step: ${currentStep.title}`);
+      await debugLogger.step('PROGRESS_MANUAL', `Step ${currentStepIndex + 1}/${INITIALIZATION_STEPS.length}: ${currentStep.id}`);
+    } catch (logError) {
+      console.error('Failed to log step start:', logError);
+    }
 
     try {
       let result = { success: true, message: 'Step completed successfully', data: null as any };
@@ -123,6 +130,9 @@ export default function ProgressScreen() {
         case 'module':
           result = await executeModuleStep();
           break;
+        case 'permissions':
+          result = await executePermissionsStep();
+          break;
         case 'availability':
           result = await executeAvailabilityStep();
           break;
@@ -131,9 +141,6 @@ export default function ProgressScreen() {
           break;
         case 'status':
           result = await executeStatusStep();
-          break;
-        case 'permissions':
-          result = await executePermissionsStep();
           break;
         case 'data':
           result = await executeDataStep();
@@ -150,7 +157,12 @@ export default function ProgressScreen() {
         [currentStep.id]: result
       }));
 
-      debugLogger.step('PROGRESS_MANUAL', `Step completed: ${currentStep.title}`, result);
+      // Immediately save step completion
+      try {
+        await debugLogger.step('PROGRESS_MANUAL', `Step completed: ${currentStep.title}`, result);
+      } catch (logError) {
+        console.error('Failed to log step completion:', logError);
+      }
 
     } catch (error: any) {
       const errorResult = { 
@@ -164,8 +176,19 @@ export default function ProgressScreen() {
         [currentStep.id]: errorResult
       }));
 
-      debugLogger.error('PROGRESS_MANUAL', `Step failed: ${currentStep.title}`, error);
-      await debugLogger.logCrash('PROGRESS_MANUAL', error, { step: currentStep.id });
+      // Immediately save crash information
+      try {
+        await debugLogger.error('PROGRESS_MANUAL', `Step failed: ${currentStep.title}`, error);
+        await debugLogger.logCrash('PROGRESS_MANUAL', error, { step: currentStep.id, stepIndex: currentStepIndex });
+        
+        // Force save logs immediately
+        await debugLogger.step('PROGRESS_CRASH', `CRASH DETECTED in step ${currentStep.id}`, { 
+          error: error?.message,
+          stack: error?.stack?.substring(0, 500) // Truncate stack trace
+        });
+      } catch (logError) {
+        console.error('Failed to log crash:', logError);
+      }
     } finally {
       setIsStepRunning(false);
     }
@@ -216,53 +239,127 @@ export default function ProgressScreen() {
     }
   };
 
+  const executePermissionsStep = async () => {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    try {
+      await debugLogger.step('PROGRESS_PERMISSIONS', 'Starting permission request process');
+      
+      const healthDataService = (global as any).__healthDataService;
+      if (!healthDataService) {
+        throw new Error('Health data service not available from previous step');
+      }
+      
+      await debugLogger.step('PROGRESS_PERMISSIONS', 'Requesting Health Connect permissions');
+      
+      // Request permissions first
+      const permissionResult = await Promise.race([
+        healthDataService.requestPermissions(),
+        new Promise<any>((resolve, reject) => 
+          setTimeout(() => {
+            debugLogger.warn('PROGRESS_PERMISSIONS', 'Permission request timeout');
+            reject(new Error('Permission request timeout'));
+          }, 15000)
+        )
+      ]);
+      
+      await debugLogger.step('PROGRESS_PERMISSIONS', 'Permission request completed', permissionResult);
+      
+      // Then check status
+      const permissions = await Promise.race([
+        healthDataService.getPermissionStatus(),
+        new Promise<any>((resolve) => 
+          setTimeout(() => {
+            debugLogger.warn('PROGRESS_PERMISSIONS', 'Permission status check timeout');
+            resolve({ healthConnect: false, bodySensors: false });
+          }, 8000)
+        )
+      ]);
+      
+      await debugLogger.step('PROGRESS_PERMISSIONS', 'Permission status retrieved', permissions);
+      
+      const hasPermissions = permissions.healthConnect || permissions.bodySensors;
+      
+      return { 
+        success: true, 
+        message: `Permissions: HC=${permissions.healthConnect ? '✅' : '❌'} Sensors=${permissions.bodySensors ? '✅' : '❌'} Granted=${hasPermissions ? '✅' : '❌'}`, 
+        data: { ...permissions, hasPermissions } 
+      };
+    } catch (error: any) {
+      const errorMsg = `Permission request failed: ${error?.message || 'Unknown'}`;
+      await debugLogger.error('PROGRESS_PERMISSIONS', errorMsg, error);
+      return { success: false, message: errorMsg, data: error };
+    }
+  };
+
   const executeAvailabilityStep = async () => {
     await new Promise(resolve => setTimeout(resolve, 1000));
     
     try {
+      await debugLogger.step('PROGRESS_AVAILABILITY', 'Checking Health Connect availability after permissions');
+      
       const healthDataService = (global as any).__healthDataService;
       if (!healthDataService) {
         throw new Error('Health data service not available from previous step');
       }
       
       const isReady = healthDataService.isReady();
+      const isAvailable = healthDataService.isHealthConnectAvailable();
+      
+      await debugLogger.step('PROGRESS_AVAILABILITY', 'Availability check completed', { 
+        ready: isReady, 
+        available: isAvailable 
+      });
       
       return { 
         success: true, 
-        message: `Health Connect ready status: ${isReady}`, 
-        data: { ready: isReady } 
+        message: `Health Connect ready: ${isReady ? '✅' : '❌'}, available: ${isAvailable ? '✅' : '❌'}`, 
+        data: { ready: isReady, available: isAvailable } 
       };
     } catch (error: any) {
       const errorMsg = `Availability check failed: ${error?.message || 'Unknown'}`;
-      setHealthConnectError(errorMsg);
+      await debugLogger.error('PROGRESS_AVAILABILITY', errorMsg, error);
       return { success: false, message: errorMsg, data: error };
     }
   };
 
   const executeInitializeStep = async () => {
-    await new Promise(resolve => setTimeout(resolve, 2000)); // Longer timeout for initialization
+    await new Promise(resolve => setTimeout(resolve, 1000));
     
     try {
+      await debugLogger.step('PROGRESS_INIT_HC', 'Starting Health Connect initialization AFTER permissions');
+      
       const healthDataService = (global as any).__healthDataService;
       if (!healthDataService) {
         throw new Error('Health data service not available from previous step');
       }
       
+      await debugLogger.step('PROGRESS_INIT_HC', 'About to call healthDataService.initialize()');
+      
+      // Add more aggressive crash detection
+      const initPromise = healthDataService.initialize();
+      
+      await debugLogger.step('PROGRESS_INIT_HC', 'Initialize call made, waiting for response');
+      
       const initialized = await Promise.race([
-        healthDataService.initialize(),
+        initPromise,
         new Promise<boolean>((resolve) => 
           setTimeout(() => {
             debugLogger.warn('PROGRESS_INIT_HC', 'Health Connect initialization timeout');
             resolve(false);
-          }, 10000)
+          }, 12000)
         )
       ]);
+      
+      await debugLogger.step('PROGRESS_INIT_HC', 'Initialize response received', { initialized });
       
       if (!initialized) {
         const errorMsg = "Health Connect initialization failed or timed out";
         setHealthConnectError(errorMsg);
         return { success: false, message: errorMsg, data: { initialized } };
       }
+      
+      await debugLogger.step('PROGRESS_INIT_HC', 'Health Connect initialization successful');
       
       return { 
         success: true, 
@@ -272,6 +369,15 @@ export default function ProgressScreen() {
     } catch (error: any) {
       const errorMsg = `Initialization failed: ${error?.message || 'Unknown'}`;
       setHealthConnectError(errorMsg);
+      
+      // Log crash details immediately
+      await debugLogger.error('PROGRESS_INIT_HC', errorMsg, error);
+      await debugLogger.step('PROGRESS_INIT_HC', 'INITIALIZATION CRASH DETECTED', { 
+        error: error?.message,
+        name: error?.name,
+        stack: error?.stack?.substring(0, 300)
+      });
+      
       return { success: false, message: errorMsg, data: error };
     }
   };
@@ -296,38 +402,6 @@ export default function ProgressScreen() {
     } catch (error: any) {
       const errorMsg = `Status check failed: ${error?.message || 'Unknown'}`;
       setHealthConnectError(errorMsg);
-      return { success: false, message: errorMsg, data: error };
-    }
-  };
-
-  const executePermissionsStep = async () => {
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    try {
-      const healthDataService = (global as any).__healthDataService;
-      if (!healthDataService) {
-        throw new Error('Health data service not available from previous step');
-      }
-      
-      const permissions = await Promise.race([
-        healthDataService.getPermissionStatus(),
-        new Promise<any>((resolve) => 
-          setTimeout(() => {
-            debugLogger.warn('PROGRESS_PERMISSIONS', 'Permission check timeout');
-            resolve({ healthConnect: false, bodySensors: false });
-          }, 8000)
-        )
-      ]);
-      
-      const hasPermissions = permissions.healthConnect || permissions.bodySensors;
-      
-      return { 
-        success: true, 
-        message: `Permissions: HC=${permissions.healthConnect ? '✅' : '❌'} Sensors=${permissions.bodySensors ? '✅' : '❌'}`, 
-        data: permissions 
-      };
-    } catch (error: any) {
-      const errorMsg = `Permission check failed: ${error?.message || 'Unknown'}`;
       return { success: false, message: errorMsg, data: error };
     }
   };

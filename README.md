@@ -51,7 +51,7 @@ Based on Spark research, the app tracks five distinct heart rate zones:
 
 ## 🎯 Cursor AI Development Experiment
 
-This project serves as an innovative experiment in AI-assisted development using **Cursor**, building both React Native and native Android versions in parallel. Our approach demonstrates:
+This project is an experiment in AI-assisted development using **Cursor**, building both React Native and native Android versions in parallel. Our approach demonstrates:
 
 ### Parallel Development Strategy
 - **React Native Version**: Cross-platform approach with Expo and Health Connect integration

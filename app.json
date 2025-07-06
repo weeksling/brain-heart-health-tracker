@@ -40,6 +40,16 @@
     "plugins": [
       "expo-router",
       [
+        "react-native-health-connect",
+        {
+          "permissions": [
+            "android.permission.health.READ_HEART_RATE",
+            "android.permission.health.READ_STEPS",
+            "android.permission.health.READ_EXERCISE"
+          ]
+        }
+      ],
+      [
         "expo-build-properties",
         {
           "android": {

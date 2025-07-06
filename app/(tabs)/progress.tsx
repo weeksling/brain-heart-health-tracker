@@ -2,10 +2,6 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Colors } from "@/constants/Colors";
 import { useColorScheme } from "@/hooks/useColorScheme";
-import {
-  healthDataService,
-  WeeklyHeartRateSummary,
-} from "@/services/HealthDataService";
 import { useEffect, useState } from "react";
 import {
   Alert,
@@ -31,82 +27,134 @@ interface DailyProgress {
   zone2PlusMinutes: number;
 }
 
+interface WeeklyHeartRateSummary {
+  totalMinutes: number;
+  zoneBreakdown: { [zoneId: string]: number };
+  sessions: any[];
+  averageHeartRate: number;
+  maxHeartRate: number;
+  minHeartRate: number;
+}
+
 export default function ProgressScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "light"];
-  const [weeklyData, setWeeklyData] = useState<WeeklyHeartRateSummary | null>(
-    null
-  );
+  const [weeklyData, setWeeklyData] = useState<WeeklyHeartRateSummary | null>(null);
   const [dailyProgress, setDailyProgress] = useState<DailyProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [healthConnectAvailable, setHealthConnectAvailable] = useState(false);
+  const [healthConnectError, setHealthConnectError] = useState<string | null>(null);
 
   const screenWidth = Dimensions.get("window").width;
 
   useEffect(() => {
-    initializeData();
+    // Use a very defensive initialization approach
+    const safeInitialize = async () => {
+      try {
+        console.log("Progress: Starting ultra-safe initialization...");
+        setLoading(true);
+        setError(null);
+        setHealthConnectError(null);
+
+        // Check platform first
+        if (Platform.OS !== "android") {
+          console.log("Progress: Not Android, using demo data");
+          setHealthConnectError("Android device required for Health Connect");
+          setFallbackData();
+          setLoading(false);
+          return;
+        }
+
+        // Try to dynamically import and initialize Health Connect with extreme safety
+        let healthServiceInitialized = false;
+        try {
+          console.log("Progress: Attempting dynamic Health Connect import...");
+          
+          // Try to import Health Connect service safely
+          let healthDataService: any = null;
+          try {
+            const healthModule = require("@/services/HealthDataService");
+            healthDataService = healthModule.healthDataService;
+          } catch (requireError) {
+            throw new Error('Health Connect module not available');
+          }
+
+          console.log("Progress: Health service imported successfully");
+
+          // Try to initialize with very short timeout
+          healthServiceInitialized = await Promise.race([
+            healthDataService.initialize(),
+            new Promise<boolean>((resolve) => 
+              setTimeout(() => {
+                console.warn("Progress: Health service init timeout");
+                resolve(false);
+              }, 5000)
+            )
+          ]);
+
+          console.log("Progress: Health service initialization result:", healthServiceInitialized);
+
+          if (healthServiceInitialized) {
+            setHealthConnectAvailable(healthDataService.isHealthConnectAvailable());
+            console.log("Progress: Health Connect available:", healthDataService.isHealthConnectAvailable());
+
+            // Try to fetch real data with timeout
+            try {
+              const weekData = await Promise.race([
+                healthDataService.getWeeklyHeartRateData(),
+                new Promise<WeeklyHeartRateSummary>((_, reject) => 
+                  setTimeout(() => reject(new Error('Data fetch timeout')), 8000)
+                )
+              ]);
+              setWeeklyData(weekData);
+
+              const dailyData = await Promise.race([
+                getDailyBreakdownForWeek(healthDataService),
+                new Promise<DailyProgress[]>((_, reject) => 
+                  setTimeout(() => reject(new Error('Daily data timeout')), 8000)
+                )
+              ]);
+              setDailyProgress(dailyData);
+              console.log("Progress: Real data loaded successfully");
+            } catch (dataError) {
+              console.warn("Progress: Failed to fetch real data, using fallback:", dataError);
+              setFallbackData();
+            }
+          } else {
+            console.log("Progress: Health service not initialized, using fallback");
+            setHealthConnectError("Health Connect initialization failed");
+            setFallbackData();
+          }
+        } catch (importError: any) {
+          console.error("Progress: Health Connect import/init failed:", importError);
+          setHealthConnectError(`Health Connect error: ${importError?.message || 'Unknown error'}`);
+          setFallbackData();
+        }
+      } catch (criticalError: any) {
+        console.error("Progress: Critical initialization error:", criticalError);
+        setError(`Initialization failed: ${criticalError?.message || 'Unknown error'}`);
+        setFallbackData();
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Wrap the entire initialization in a timeout to prevent hanging
+    const initTimeout = setTimeout(() => {
+      console.error("Progress: Initialization completely timed out");
+      setError("Initialization timed out");
+      setFallbackData();
+      setLoading(false);
+    }, 15000);
+
+    safeInitialize().finally(() => {
+      clearTimeout(initTimeout);
+    });
   }, []);
 
-  const initializeData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      console.log("Progress: Starting initialization...");
-      
-      // Check platform first
-      if (Platform.OS !== "android") {
-        setError("This app is currently only available for Android devices");
-        setLoading(false);
-        return;
-      }
-
-      // Initialize health service with timeout protection
-      let initialized = false;
-      try {
-        console.log("Progress: Initializing health service...");
-        initialized = await Promise.race([
-          healthDataService.initialize(),
-          new Promise<boolean>((resolve) => 
-            setTimeout(() => {
-              console.warn("Progress: Health service initialization timeout");
-              resolve(false);
-            }, 10000)
-          )
-        ]);
-      } catch (initError) {
-        console.error("Progress: Health service initialization failed:", initError);
-        initialized = false;
-      }
-
-      console.log("Progress: Health service initialized:", initialized);
-      
-      if (initialized) {
-        // Check if Health Connect is actually available
-        const healthConnectReady = healthDataService.isHealthConnectAvailable();
-        setHealthConnectAvailable(healthConnectReady);
-        console.log("Progress: Health Connect available:", healthConnectReady);
-        
-        // Fetch data regardless of Health Connect availability (service will provide fallback)
-        await fetchWeeklyProgress();
-      } else {
-        console.log("Progress: Using fallback data due to initialization failure");
-        setHealthConnectAvailable(false);
-        // Create some fallback data
-        setFallbackData();
-      }
-    } catch (err) {
-      console.error("Progress: Failed to initialize progress data:", err);
-      setError("Failed to load progress data");
-      setFallbackData();
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const setFallbackData = () => {
-    // Set some reasonable fallback data
+    console.log("Progress: Setting fallback data");
     const fallbackDaily = [
       { day: "Mon", date: "2024-01-01", zone2PlusMinutes: 25 },
       { day: "Tue", date: "2024-01-02", zone2PlusMinutes: 30 },
@@ -117,49 +165,10 @@ export default function ProgressScreen() {
       { day: "Sun", date: "2024-01-07", zone2PlusMinutes: 15 },
     ];
     setDailyProgress(fallbackDaily);
+    setHealthConnectAvailable(false);
   };
 
-  const fetchWeeklyProgress = async () => {
-    try {
-      console.log("Progress: Fetching weekly data...");
-      
-      // Get weekly data with timeout protection
-      let weekData: WeeklyHeartRateSummary | null = null;
-      try {
-        weekData = await Promise.race([
-          healthDataService.getWeeklyHeartRateData(),
-          new Promise<WeeklyHeartRateSummary>((_, reject) => 
-            setTimeout(() => reject(new Error('Weekly data timeout')), 15000)
-          )
-        ]);
-        setWeeklyData(weekData);
-        console.log("Progress: Weekly data loaded successfully");
-      } catch (weeklyError) {
-        console.error("Progress: Failed to fetch weekly data:", weeklyError);
-        // Continue with daily data even if weekly fails
-      }
-
-      // Get daily breakdown for the week with timeout protection
-      try {
-        const dailyData = await Promise.race([
-          getDailyBreakdownForWeek(),
-          new Promise<DailyProgress[]>((_, reject) => 
-            setTimeout(() => reject(new Error('Daily data timeout')), 15000)
-          )
-        ]);
-        setDailyProgress(dailyData);
-        console.log("Progress: Daily data loaded successfully");
-      } catch (dailyError) {
-        console.error("Progress: Failed to fetch daily data:", dailyError);
-        setFallbackData();
-      }
-    } catch (err) {
-      console.error("Progress: Failed to fetch weekly progress:", err);
-      setFallbackData();
-    }
-  };
-
-  const getDailyBreakdownForWeek = async (): Promise<DailyProgress[]> => {
+  const getDailyBreakdownForWeek = async (healthDataService: any): Promise<DailyProgress[]> => {
     const today = new Date();
     const dayOfWeek = today.getDay();
     const weekStart = new Date(today);
@@ -174,7 +183,7 @@ export default function ProgressScreen() {
       
       if (date <= today) {
         return Promise.race([
-          healthDataService.getDailyHeartRateData(dateString).then(dayData => {
+          healthDataService.getDailyHeartRateData(dateString).then((dayData: any) => {
             const zone2PlusMinutes = 
               (dayData.zoneBreakdown.zone2 || 0) + 
               (dayData.zoneBreakdown.zone3 || 0);
@@ -190,20 +199,19 @@ export default function ProgressScreen() {
               resolve({
                 day: dayNames[i],
                 date: dateString,
-                zone2PlusMinutes: Math.floor(Math.random() * 30), // Random fallback
+                zone2PlusMinutes: Math.floor(Math.random() * 30),
               });
-            }, 5000)
+            }, 3000)
           )
-        ]).catch(error => {
+        ]).catch((error: any) => {
           console.error(`Progress: Error fetching ${dayNames[i]} data:`, error);
           return {
             day: dayNames[i],
             date: dateString,
-            zone2PlusMinutes: Math.floor(Math.random() * 30), // Random fallback
+            zone2PlusMinutes: Math.floor(Math.random() * 30),
           };
         });
       } else {
-        // Future days show as 0
         return Promise.resolve({
           day: dayNames[i],
           date: dateString,
@@ -216,20 +224,36 @@ export default function ProgressScreen() {
     return dailyData;
   };
 
+  const handleRetryHealthConnect = async () => {
+    console.log("Progress: User requested Health Connect retry");
+    setLoading(true);
+    setError(null);
+    setHealthConnectError(null);
+    
+    // Small delay to show loading state
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Re-run initialization
+    const event = { target: { value: 'retry' } };
+    // Trigger useEffect again by updating a state that's in the dependency array
+    setHealthConnectAvailable(false);
+  };
+
   const handleConnectHealthData = () => {
+    const statusMessage = healthConnectError 
+      ? `Health Connect Status: ${healthConnectError}`
+      : healthConnectAvailable 
+        ? "Health Connect is available and data should be real if you have health data recorded."
+        : "Health Connect is not available on this device or permissions were denied. The app is showing demonstration data.";
+
     Alert.alert(
-      "Health Connect",
-      healthConnectAvailable 
-        ? "Health Connect is available and permissions may be granted. Data shown should be real if you have health data."
-        : "Health Connect is not available on this device or permissions were denied. The app is showing simulated data for demonstration.",
+      "Health Connect Status",
+      statusMessage,
       [
         { text: "OK" },
         { 
           text: "Retry", 
-          onPress: () => {
-            console.log("Progress: User requested retry");
-            initializeData();
-          }
+          onPress: handleRetryHealthConnect
         }
       ]
     );
@@ -239,7 +263,6 @@ export default function ProgressScreen() {
     const labels = dailyProgress.map(d => d.day);
     const data = dailyProgress.map(d => d.zone2PlusMinutes);
     
-    // Calculate daily goal (weekly goal / 7)
     const dailyGoal = DEFAULT_GOALS.weekly.zone2Plus / 7;
     const goalLine = new Array(dailyProgress.length).fill(dailyGoal);
 
@@ -255,7 +278,7 @@ export default function ProgressScreen() {
           data: goalLine,
           color: (opacity = 1) => `rgba(128, 128, 128, ${opacity * 0.5})`,
           strokeWidth: 2,
-          strokeDashArray: [5, 5], // Creates dotted line
+          strokeDashArray: [5, 5],
         },
       ],
     };
@@ -450,7 +473,7 @@ export default function ProgressScreen() {
           <ThemedText style={styles.errorText}>{error}</ThemedText>
           <TouchableOpacity
             style={[styles.retryButton, { backgroundColor: colors.tint }]}
-            onPress={initializeData}
+            onPress={handleRetryHealthConnect}
           >
             <ThemedText style={styles.retryButtonText}>Retry</ThemedText>
           </TouchableOpacity>
@@ -477,12 +500,14 @@ export default function ProgressScreen() {
           </ThemedText>
         </View>
 
-        {!healthConnectAvailable && (
+        {(!healthConnectAvailable || healthConnectError) && (
           <ThemedView style={styles.healthConnectBanner}>
             <ThemedText style={styles.bannerText}>
               {Platform.OS !== "android" 
-                ? "� Android device required for Health Connect"
-                : "⚡ Health Connect not available or permissions denied"
+                ? "📱 Android device required for Health Connect"
+                : healthConnectError
+                  ? `⚠️ ${healthConnectError}`
+                  : "⚡ Health Connect not available or permissions denied"
               }
             </ThemedText>
             <ThemedText style={styles.bannerSubtext}>

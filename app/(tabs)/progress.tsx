@@ -1,16 +1,11 @@
-import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Colors } from "@/constants/Colors";
 import { useColorScheme } from "@/hooks/useColorScheme";
+import { useState } from "react";
 import {
-  healthDataService,
-  WeeklyHeartRateSummary,
-} from "@/services/HealthDataService";
-import { useEffect, useState } from "react";
-import {
+  Alert,
   Dimensions,
-  Platform,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -19,116 +14,46 @@ import {
 import { LineChart } from "react-native-chart-kit";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+// Mock data for demonstration
+const MOCK_WEEKLY_DATA = [
+  { day: "Mon", zone2PlusMinutes: 25 },
+  { day: "Tue", zone2PlusMinutes: 30 },
+  { day: "Wed", zone2PlusMinutes: 0 },
+  { day: "Thu", zone2PlusMinutes: 45 },
+  { day: "Fri", zone2PlusMinutes: 20 },
+  { day: "Sat", zone2PlusMinutes: 35 },
+  { day: "Sun", zone2PlusMinutes: 15 },
+];
+
 const DEFAULT_GOALS = {
   weekly: {
     zone2Plus: 150, // Zone 2 + Zone 3
   },
 };
 
-interface DailyProgress {
-  day: string;
-  date: string;
-  zone2PlusMinutes: number;
-}
-
 export default function ProgressScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "light"];
-  const [weeklyData, setWeeklyData] = useState<WeeklyHeartRateSummary | null>(
-    null
-  );
-  const [dailyProgress, setDailyProgress] = useState<DailyProgress[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
+  const [showingMockData, setShowingMockData] = useState(true);
   const screenWidth = Dimensions.get("window").width;
 
-  useEffect(() => {
-    initializeData();
-  }, []);
-
-  const initializeData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Initialize health service if not already done
-      const initialized = await healthDataService.initialize();
-      
-      if (Platform.OS !== "android") {
-        setError("This app is currently only available for Android devices");
-        return;
-      }
-
-      // Fetch weekly data
-      await fetchWeeklyProgress();
-    } catch (err) {
-      console.error("Failed to initialize progress data:", err);
-      setError("Failed to load progress data");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchWeeklyProgress = async () => {
-    try {
-      // Get current week data
-      const weekData = await healthDataService.getWeeklyHeartRateData();
-      setWeeklyData(weekData);
-
-      // Get daily breakdown for the week
-      const dailyData = await getDailyBreakdownForWeek();
-      setDailyProgress(dailyData);
-    } catch (err) {
-      console.error("Failed to fetch weekly progress:", err);
-    }
-  };
-
-  const getDailyBreakdownForWeek = async (): Promise<DailyProgress[]> => {
-    const today = new Date();
-    const dayOfWeek = today.getDay();
-    const weekStart = new Date(today);
-    weekStart.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-    
-    const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-    const promises = Array.from({ length: 7 }, (_, i) => {
-      const date = new Date(weekStart);
-      date.setDate(weekStart.getDate() + i);
-      const dateString = date.toISOString().split("T")[0];
-      
-      if (date <= today) {
-        return healthDataService.getDailyHeartRateData(dateString).then(dayData => {
-          const zone2PlusMinutes = 
-            (dayData.zoneBreakdown.zone2 || 0) + 
-            (dayData.zoneBreakdown.zone3 || 0);
-          return {
-            day: dayNames[i],
-            date: dateString,
-            zone2PlusMinutes,
-          };
-        });
-      } else {
-        // Future days show as 0
-        return Promise.resolve({
-          day: dayNames[i],
-          date: dateString,
-          zone2PlusMinutes: 0,
-        });
-      }
-    });
-    
-    const dailyData = await Promise.all(promises);
-    return dailyData;
+  const handleConnectHealthData = () => {
+    Alert.alert(
+      "Health Connect Required",
+      "This feature requires Health Connect integration. In the test version, we're showing mock data for demonstration.",
+      [
+        { text: "OK" }
+      ]
+    );
   };
 
   const getChartData = () => {
-    const labels = dailyProgress.map(d => d.day);
-    const data = dailyProgress.map(d => d.zone2PlusMinutes);
+    const labels = MOCK_WEEKLY_DATA.map(d => d.day);
+    const data = MOCK_WEEKLY_DATA.map(d => d.zone2PlusMinutes);
     
     // Calculate daily goal (weekly goal / 7)
     const dailyGoal = DEFAULT_GOALS.weekly.zone2Plus / 7;
-    const goalLine = new Array(dailyProgress.length).fill(dailyGoal);
+    const goalLine = new Array(MOCK_WEEKLY_DATA.length).fill(dailyGoal);
 
     return {
       labels,
@@ -149,12 +74,10 @@ export default function ProgressScreen() {
   };
 
   const calculateWeeklyTotal = () => {
-    return dailyProgress.reduce((sum, day) => sum + day.zone2PlusMinutes, 0);
+    return MOCK_WEEKLY_DATA.reduce((sum, day) => sum + day.zone2PlusMinutes, 0);
   };
 
   const renderChart = () => {
-    if (dailyProgress.length === 0) return null;
-
     const chartData = getChartData();
     const weeklyTotal = calculateWeeklyTotal();
     const weeklyGoal = DEFAULT_GOALS.weekly.zone2Plus;
@@ -167,7 +90,7 @@ export default function ProgressScreen() {
             Weekly Progress
           </ThemedText>
           <ThemedText style={styles.chartSubtitle}>
-            Zone 2+ minutes per day
+            Zone 2+ minutes per day {showingMockData && "(Mock Data)"}
           </ThemedText>
         </View>
 
@@ -267,13 +190,13 @@ export default function ProgressScreen() {
         <ThemedText type="subtitle" style={styles.breakdownTitle}>
           Daily Breakdown
         </ThemedText>
-        {dailyProgress.map((day, index) => {
+        {MOCK_WEEKLY_DATA.map((day, index) => {
           const dailyGoal = DEFAULT_GOALS.weekly.zone2Plus / 7;
           const percentage = Math.min((day.zone2PlusMinutes / dailyGoal) * 100, 100);
-          const isToday = new Date(day.date).toDateString() === new Date().toDateString();
+          const isToday = index === 6; // Mock "today" as Sunday
           
           return (
-            <View key={day.date} style={styles.dayRow}>
+            <View key={day.day} style={styles.dayRow}>
               <View style={styles.dayInfo}>
                 <ThemedText style={[
                   styles.dayName,
@@ -313,66 +236,50 @@ export default function ProgressScreen() {
     );
   };
 
-  if (loading) {
-    return (
-      <SafeAreaView
-        style={[styles.container, { backgroundColor: colors.background }]}
-      >
-        <View style={styles.centerContent}>
-          <ThemedText>Loading progress data...</ThemedText>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (error) {
-    return (
-      <SafeAreaView
-        style={[styles.container, { backgroundColor: colors.background }]}
-      >
-        <View style={styles.centerContent}>
-          <ThemedText style={styles.errorText}>{error}</ThemedText>
-          <TouchableOpacity
-            style={[styles.retryButton, { backgroundColor: colors.tint }]}
-            onPress={initializeData}
-          >
-            <ThemedText style={styles.retryButtonText}>Retry</ThemedText>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   return (
-    <ErrorBoundary>
-      <SafeAreaView
-        style={[styles.container, { backgroundColor: colors.background }]}
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+    >
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
       >
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.header}>
-            <ThemedText type="title" style={styles.title}>
-              Progress Tracker
-            </ThemedText>
-            <ThemedText style={styles.subtitle}>
-              Track your weekly Zone 2+ exercise minutes
-            </ThemedText>
-          </View>
+        <View style={styles.header}>
+          <ThemedText type="title" style={styles.title}>
+            Progress Tracker
+          </ThemedText>
+          <ThemedText style={styles.subtitle}>
+            Track your weekly Zone 2+ exercise minutes
+          </ThemedText>
+        </View>
 
-          {renderChart()}
-          {renderDailyBreakdown()}
-
-          <View style={styles.infoContainer}>
-            <ThemedText style={styles.infoText}>
-              💡 Aim for at least 150 minutes of Zone 2+ activity per week for optimal brain health benefits.
+        {showingMockData && (
+          <ThemedView style={styles.mockDataBanner}>
+            <ThemedText style={styles.mockDataText}>
+              📊 Showing mock data for demonstration
             </ThemedText>
-          </View>
-        </ScrollView>
-      </SafeAreaView>
-    </ErrorBoundary>
+            <TouchableOpacity
+              style={[styles.connectButton, { backgroundColor: colors.tint }]}
+              onPress={handleConnectHealthData}
+            >
+              <ThemedText style={styles.connectButtonText}>
+                Connect Health Data
+              </ThemedText>
+            </TouchableOpacity>
+          </ThemedView>
+        )}
+
+        {renderChart()}
+        {renderDailyBreakdown()}
+
+        <View style={styles.infoContainer}>
+          <ThemedText style={styles.infoText}>
+            💡 Aim for at least 150 minutes of Zone 2+ activity per week for optimal brain health benefits.
+          </ThemedText>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -386,12 +293,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 20,
   },
-  centerContent: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
   header: {
     padding: 16,
     paddingTop: 0,
@@ -404,6 +305,31 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     opacity: 0.8,
+  },
+  mockDataBanner: {
+    margin: 16,
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 193, 7, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 193, 7, 0.3)",
+  },
+  mockDataText: {
+    fontSize: 16,
+    textAlign: "center",
+    marginBottom: 12,
+    color: "#F57C00",
+  },
+  connectButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignSelf: "center",
+  },
+  connectButtonText: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "600",
   },
   chartContainer: {
     margin: 16,
@@ -500,19 +426,21 @@ const styles = StyleSheet.create({
   },
   dayName: {
     fontSize: 16,
-    fontWeight: "500",
+    fontWeight: "600",
   },
   todayText: {
-    fontWeight: "700",
+    color: "#4CAF50",
   },
   dayMinutes: {
     fontSize: 14,
     opacity: 0.7,
+    marginTop: 2,
   },
   dayProgressContainer: {
     flex: 0.7,
     flexDirection: "row",
     alignItems: "center",
+    marginLeft: 16,
   },
   dayProgressBar: {
     flex: 1,
@@ -525,33 +453,20 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   checkmark: {
-    marginLeft: 8,
-    fontSize: 16,
+    fontSize: 18,
     color: "#4CAF50",
+    marginLeft: 8,
   },
   infoContainer: {
     margin: 16,
     padding: 16,
-    borderRadius: 8,
-    backgroundColor: "rgba(100, 181, 246, 0.1)",
+    borderRadius: 12,
+    backgroundColor: "rgba(33, 150, 243, 0.1)",
   },
   infoText: {
     fontSize: 14,
     lineHeight: 20,
-  },
-  errorText: {
-    fontSize: 16,
     textAlign: "center",
-    marginBottom: 20,
-  },
-  retryButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
+    color: "#1976D2",
   },
 });

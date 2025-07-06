@@ -16,10 +16,20 @@ data class HeartRateZone(
     companion object {
         val DEFAULT_ZONES = listOf(
             HeartRateZone(
+                id = "zone0",
+                name = "Zone 0",
+                description = "Testing/Rest",
+                minBpm = 0,
+                maxBpm = 94,
+                color = Color(0xFF9E9E9E),
+                dailyGoal = 0,
+                weeklyGoal = 0
+            ),
+            HeartRateZone(
                 id = "zone1",
                 name = "Zone 1",
                 description = "Recovery",
-                minBpm = 0,
+                minBpm = 95,
                 maxBpm = 120,
                 color = Color(0xFF81C784),
                 dailyGoal = 20,

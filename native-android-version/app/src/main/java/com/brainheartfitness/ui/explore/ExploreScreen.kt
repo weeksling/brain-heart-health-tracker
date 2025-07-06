@@ -10,8 +10,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.brainheartfitness.data.model.DailyHealthSummary
 import com.brainheartfitness.data.model.HeartRateSession
@@ -25,6 +27,7 @@ fun ExploreScreen(
     viewModel: ExploreViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var showDebugDialog by remember { mutableStateOf(false) }
     
     Column(
         modifier = Modifier
@@ -43,8 +46,13 @@ fun ExploreScreen(
                 fontWeight = FontWeight.Bold
             )
             
-            IconButton(onClick = { viewModel.refresh() }) {
-                Text("🔄")
+            Row {
+                IconButton(onClick = { showDebugDialog = true }) {
+                    Text("🔍")
+                }
+                IconButton(onClick = { viewModel.refresh() }) {
+                    Text("🔄")
+                }
             }
         }
         
@@ -115,6 +123,58 @@ fun ExploreScreen(
                     item {
                         SessionsCard(uiState.weeklyData?.sessions ?: emptyList())
                     }
+                }
+            }
+        }
+    }
+    
+    // Debug Dialog
+    if (showDebugDialog) {
+        Dialog(onDismissRequest = { showDebugDialog = false }) {
+            Card(
+                modifier = Modifier.fillMaxSize(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Raw Data Debug",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        
+                        IconButton(onClick = { showDebugDialog = false }) {
+                            Text("❌")
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    LaunchedEffect(showDebugDialog) {
+                        if (showDebugDialog) {
+                            viewModel.getRawDataDebugInfo()
+                        }
+                    }
+                    
+                    val scrollState = rememberScrollState()
+                    Text(
+                        text = uiState.rawDataDebugInfo ?: "Loading debug info...",
+                        fontFamily = FontFamily.Monospace,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(scrollState)
+                    )
                 }
             }
         }

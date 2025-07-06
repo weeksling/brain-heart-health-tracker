@@ -282,6 +282,7 @@ class HealthDataRepository @Inject constructor(
     private fun generateFallbackWeeklyData(): WeeklyHealthSummary {
         Log.d(TAG, "Generating fallback weekly data")
         val dummyZoneBreakdown = mapOf(
+            "zone0" to (5..20).random(),
             "zone1" to (20..40).random(),
             "zone2" to (80..120).random(),
             "zone3" to (30..60).random(),
@@ -305,6 +306,7 @@ class HealthDataRepository @Inject constructor(
     private fun generateFallbackDailyData(date: LocalDate): DailyHealthSummary {
         Log.d(TAG, "Generating fallback daily data for $date")
         val dummyZoneBreakdown = mapOf(
+            "zone0" to (0..10).random(),
             "zone1" to (5..15).random(),
             "zone2" to (15..35).random(),
             "zone3" to (5..15).random(),
@@ -353,9 +355,9 @@ class HealthDataRepository @Inject constructor(
     ): ProgressData {
         val zones = HeartRateZone.DEFAULT_ZONES
         val goals = if (timeRange == TimeRange.DAILY) {
-            mapOf("zone1" to 20, "zone2" to 25, "zone3" to 5, "zone2Plus" to 30)
+            mapOf("zone0" to 0, "zone1" to 20, "zone2" to 25, "zone3" to 5, "zone2Plus" to 30)
         } else {
-            mapOf("zone1" to 150, "zone2" to 150, "zone3" to 30, "zone2Plus" to 150)
+            mapOf("zone0" to 0, "zone1" to 150, "zone2" to 150, "zone3" to 30, "zone2Plus" to 150)
         }
         
         val progressZones = zones.map { zone ->
@@ -384,9 +386,9 @@ class HealthDataRepository @Inject constructor(
     ): ProgressData {
         val zones = HeartRateZone.DEFAULT_ZONES
         val goals = if (timeRange == TimeRange.DAILY) {
-            mapOf("zone1" to 20, "zone2" to 25, "zone3" to 5, "zone2Plus" to 30)
+            mapOf("zone0" to 0, "zone1" to 20, "zone2" to 25, "zone3" to 5, "zone2Plus" to 30)
         } else {
-            mapOf("zone1" to 150, "zone2" to 150, "zone3" to 30, "zone2Plus" to 150)
+            mapOf("zone0" to 0, "zone1" to 150, "zone2" to 150, "zone3" to 30, "zone2Plus" to 150)
         }
         
         val progressZones = zones.map { zone ->
@@ -434,6 +436,7 @@ class HealthDataRepository @Inject constructor(
                 maxBpm = (140..180).random(),
                 minBpm = (60..80).random(),
                 zoneMinutes = mapOf(
+                    "zone0" to (0..5).random(),
                     "zone1" to (5..15).random(),
                     "zone2" to (15..25).random(),
                     "zone3" to (10..20).random(),

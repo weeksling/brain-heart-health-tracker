@@ -1,0 +1,10 @@
+{
+  "backgroundAgents": {
+    "environment": {
+      "dockerImage": "android-nodejs-dev",
+      "dockerFile": "./Dockerfile",
+      "workingDirectory": "/workspace"
+    }
+  },
+  "agentCanUpdateSnapshot": true
+}

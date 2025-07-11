@@ -4,7 +4,32 @@
       "dockerImage": "android-nodejs-dev",
       "dockerFile": "./Dockerfile",
       "workingDirectory": "/workspace"
-    }
+    },
+    "pullRequestTemplate": {
+      "enabled": true,
+      "templatePath": ".github/PULL_REQUEST_TEMPLATE.md",
+      "requireTemplate": true
+    },
+    "instructions": [
+      "Always use the Dockerfile environment for all Android development tasks",
+      "Follow the pull request template when creating PRs",
+      "Test Android apps using the available emulator and testing tools",
+      "Ensure all Android builds are tested in the Docker environment",
+      "Use the Android SDK and tools available in the container",
+      "Run 'avdmanager list avd' to check available Android Virtual Devices",
+      "Use 'gradlew build' for Android native builds",
+      "Use 'npm run android' for React Native builds",
+      "Always check if the app builds successfully before creating a PR",
+      "Include relevant testing information in the PR description"
+    ]
   },
-  "agentCanUpdateSnapshot": true
+  "agentCanUpdateSnapshot": true,
+  "docker": {
+    "enabled": true,
+    "dockerfile": "./Dockerfile",
+    "buildArgs": {},
+    "volumes": [
+      "/workspace:/workspace"
+    ]
+  }
 }

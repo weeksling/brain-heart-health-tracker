@@ -28,6 +28,7 @@ class HealthDataRepository @Inject constructor(
         // For demo purposes, generate some realistic dummy data
         val zones = HeartRateZone.DEFAULT_ZONES
         val dummyZoneBreakdown = mapOf(
+            "zone0" to (60..100).random(),
             "zone1" to (20..40).random(),
             "zone2" to (80..120).random(),
             "zone3" to (30..60).random(),
@@ -62,6 +63,7 @@ class HealthDataRepository @Inject constructor(
         
         // For demo purposes, generate some realistic dummy data
         val dummyZoneBreakdown = mapOf(
+            "zone0" to (15..30).random(),
             "zone1" to (5..15).random(),
             "zone2" to (15..35).random(),
             "zone3" to (5..15).random(),
@@ -113,9 +115,9 @@ class HealthDataRepository @Inject constructor(
     ): ProgressData {
         val zones = HeartRateZone.DEFAULT_ZONES
         val goals = if (timeRange == TimeRange.DAILY) {
-            mapOf("zone1" to 20, "zone2" to 25, "zone3" to 5, "zone2Plus" to 30)
+            mapOf("zone0" to 0, "zone1" to 30, "zone2" to 25, "zone3" to 10, "zone2Plus" to 35)
         } else {
-            mapOf("zone1" to 150, "zone2" to 150, "zone3" to 30, "zone2Plus" to 150)
+            mapOf("zone0" to 0, "zone1" to 150, "zone2" to 150, "zone3" to 50, "zone2Plus" to 200)
         }
         
         val progressZones = zones.map { zone ->
@@ -131,7 +133,7 @@ class HealthDataRepository @Inject constructor(
         return ProgressData(
             zones = progressZones,
             totalZone2PlusMinutes = totalZone2PlusMinutes,
-            zone2PlusGoal = goals["zone2Plus"] ?: 150
+            zone2PlusGoal = goals["zone2Plus"] ?: 200
         )
     }
     
@@ -141,9 +143,9 @@ class HealthDataRepository @Inject constructor(
     ): ProgressData {
         val zones = HeartRateZone.DEFAULT_ZONES
         val goals = if (timeRange == TimeRange.DAILY) {
-            mapOf("zone1" to 20, "zone2" to 25, "zone3" to 5, "zone2Plus" to 30)
+            mapOf("zone0" to 0, "zone1" to 30, "zone2" to 25, "zone3" to 10, "zone2Plus" to 35)
         } else {
-            mapOf("zone1" to 150, "zone2" to 150, "zone3" to 30, "zone2Plus" to 150)
+            mapOf("zone0" to 0, "zone1" to 150, "zone2" to 150, "zone3" to 50, "zone2Plus" to 200)
         }
         
         val progressZones = zones.map { zone ->
@@ -159,7 +161,7 @@ class HealthDataRepository @Inject constructor(
         return ProgressData(
             zones = progressZones,
             totalZone2PlusMinutes = totalZone2PlusMinutes,
-            zone2PlusGoal = goals["zone2Plus"] ?: 30
+            zone2PlusGoal = goals["zone2Plus"] ?: 35
         )
     }
     
@@ -182,6 +184,7 @@ class HealthDataRepository @Inject constructor(
                 maxBpm = (140..180).random(),
                 minBpm = (60..80).random(),
                 zoneMinutes = mapOf(
+                    "zone0" to (5..10).random(),
                     "zone1" to (5..15).random(),
                     "zone2" to (15..25).random(),
                     "zone3" to (10..20).random(),

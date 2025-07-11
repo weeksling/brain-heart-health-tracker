@@ -15,12 +15,14 @@
     <string name="permission_rationale">This app needs access to your health data to track heart rate zones for optimal brain health.</string>
     
     <!-- Heart Rate Zones -->
+    <string name="zone_0">Zone 0</string>
     <string name="zone_1">Zone 1</string>
     <string name="zone_2">Zone 2</string>
     <string name="zone_3">Zone 3</string>
     <string name="zone_4">Zone 4</string>
     <string name="zone_5">Zone 5</string>
-    <string name="recovery">Recovery</string>
+    <string name="rest">Rest</string>
+    <string name="light_activity">Light Activity</string>
     <string name="aerobic_base">Aerobic Base</string>
     <string name="tempo">Tempo</string>
     <string name="threshold">Threshold</string>

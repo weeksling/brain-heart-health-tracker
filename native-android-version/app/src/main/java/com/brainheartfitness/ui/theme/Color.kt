@@ -11,7 +11,8 @@ val PurpleGrey40 = Color(0xFF625b71)
 val Pink40 = Color(0xFF7D5260)
 
 // Heart Rate Zone Colors
-val Zone1Color = Color(0xFF81C784) // Green - Recovery
+val Zone0Color = Color(0xFFE8F5E8) // Light Green - Rest
+val Zone1Color = Color(0xFF81C784) // Green - Light Activity
 val Zone2Color = Color(0xFF64B5F6) // Blue - Aerobic Base  
 val Zone3Color = Color(0xFFFFB74D) // Orange - Tempo
 val Zone4Color = Color(0xFFF44336) // Red - Threshold

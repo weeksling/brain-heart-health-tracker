@@ -96,48 +96,59 @@ export class HealthDataService {
   private currentPlatform: "health_connect" | "google_fit" | "garmin_connect" =
     "health_connect";
 
-  // Default heart rate zones based on "Spark" research
-  // Zone 1: Recovery (0-120 BPM)
-  // Zone 2: Aerobic Base (121-140 BPM) - Primary target for brain health
-  // Zone 3: Tempo (141-160 BPM) - Moderate intensity
+  // Default heart rate zones based on "Spark" research and aligned with Oura zones
+  // Zone 0: Rest (0-91 BPM) - Recovery and rest
+  // Zone 1: Light Activity (92-110 BPM) - Metabolic health, easy conversation
+  // Zone 2: Aerobic Base (111-128 BPM) - Building endurance, primary target for brain health
+  // Zone 3: Tempo (129-147 BPM) - Moderate-to-high intensity, increased benefits
+  // Zone 4: Threshold (148-165 BPM) - Near-max effort, high intensity
+  // Zone 5: VO2 Max (166+ BPM) - All-out effort, maximum capacity
   private defaultZones: HeartRateZone[] = [
+    {
+      id: "zone0",
+      name: "Zone 0",
+      description: "Rest",
+      minBpm: 0,
+      maxBpm: 91,
+      color: "#E8F5E8",
+    },
     {
       id: "zone1",
       name: "Zone 1",
-      description: "Recovery",
-      minBpm: 0,
-      maxBpm: 120,
+      description: "Light Activity",
+      minBpm: 92,
+      maxBpm: 110,
       color: "#81C784",
     },
     {
       id: "zone2",
       name: "Zone 2",
       description: "Aerobic Base",
-      minBpm: 121,
-      maxBpm: 140,
+      minBpm: 111,
+      maxBpm: 128,
       color: "#64B5F6",
     },
     {
       id: "zone3",
       name: "Zone 3",
       description: "Tempo",
-      minBpm: 141,
-      maxBpm: 160,
+      minBpm: 129,
+      maxBpm: 147,
       color: "#FFB74D",
     },
     {
       id: "zone4",
       name: "Zone 4",
       description: "Threshold",
-      minBpm: 161,
-      maxBpm: 180,
+      minBpm: 148,
+      maxBpm: 165,
       color: "#F44336",
     },
     {
       id: "zone5",
       name: "Zone 5",
       description: "VO2 Max",
-      minBpm: 181,
+      minBpm: 166,
       maxBpm: 999,
       color: "#9C27B0",
     },
@@ -431,6 +442,7 @@ export class HealthDataService {
   /**
    * Calculate heart rate zones for a given max heart rate
    * Uses Karvonen formula: Target HR = ((Max HR - Resting HR) × Intensity) + Resting HR
+   * Now includes Zone 0 for rest/recovery
    */
   calculateHeartRateZones(
     maxHeartRate: number,
@@ -438,8 +450,14 @@ export class HealthDataService {
   ): HeartRateZone[] {
     const zones = [
       {
+        name: "Zone 0",
+        description: "Rest",
+        intensity: 0.0,
+        color: "#E8F5E8",
+      },
+      {
         name: "Zone 1",
-        description: "Recovery",
+        description: "Light Activity",
         intensity: 0.5,
         color: "#81C784",
       },
@@ -470,7 +488,19 @@ export class HealthDataService {
     ];
 
     return zones.map((zone, index) => {
-      const minBpm = Math.round(
+      // Zone 0 has a fixed range up to 91 BPM (similar to Oura)
+      if (index === 0) {
+        return {
+          id: "zone0",
+          name: zone.name,
+          description: zone.description,
+          minBpm: 0,
+          maxBpm: 91,
+          color: zone.color,
+        };
+      }
+
+      const minBpm = index === 1 ? 92 : Math.round(
         (maxHeartRate - restingHeartRate) * zone.intensity + restingHeartRate
       );
       const maxBpm =
@@ -482,7 +512,7 @@ export class HealthDataService {
           : maxHeartRate;
 
       return {
-        id: `zone${index + 1}`,
+        id: `zone${index}`,
         name: zone.name,
         description: zone.description,
         minBpm,

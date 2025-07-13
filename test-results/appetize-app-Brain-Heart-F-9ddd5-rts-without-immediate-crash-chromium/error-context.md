@@ -1,0 +1,48 @@
+# Page snapshot
+
+```yaml
+- link "Appetize":
+  - /url: /
+  - img "Appetize"
+- heading "Online web based iOS Simulators and Android Emulators. Run iPhone, iPad, Mobile Safari, APK, mobile apps in your browser with HTML5 and Javascript. For mobile app customer support, training, app previews, testing, and much more." [level=1]
+- img
+- text: CONFIGURATION
+- img
+- text: Device
+- button "Pixel 7"
+- text: OS
+- button "Android 13.0"
+- text: Scale
+- button "Auto"
+- text: Show Device Controls On Off Show Developer Tools Show Hide
+- img
+- text: Brain Heart Fitness v1.0.0
+- img "device border"
+- button "Tap to Start"
+- button "Home" [disabled]:
+  - img
+- button "Lock" [disabled]:
+  - img
+- button "Screenshot" [disabled]:
+  - img
+- button "Rotate":
+  - img
+- button "Location":
+  - img
+- button "Language":
+  - img
+- button "Dark Theme":
+  - img
+- button "Font Scale":
+  - img
+- button "Upload File" [disabled]:
+  - img
+- button "Fingerprint ID" [disabled]:
+  - img
+- img
+- button "AppRecorder"
+- tabpanel "AppRecorder":
+  - text: Enable AppRecorder to record and playback actions on any device
+  - button "Enable AppRecorder"
+- alert: Play Brain Heart Fitness
+```

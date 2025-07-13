@@ -1,0 +1,7 @@
+{
+  "testName": "App loads and starts without immediate crash",
+  "status": "timedOut",
+  "consoleLogs": [],
+  "consoleErrors": [],
+  "timestamp": "2025-07-13T03:54:18.430Z"
+}

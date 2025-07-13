@@ -1,0 +1,57 @@
+{
+  "startTime": "2025-07-13T03:55:54.641Z",
+  "appURL": "https://appetize.io/app/zp4kxffzsezfqf7kgj3bpn6zx4",
+  "phases": [
+    {
+      "phase": "Browser Launch",
+      "status": "success",
+      "timestamp": "2025-07-13T03:55:54.744Z"
+    },
+    {
+      "phase": "Page Navigation",
+      "status": "success",
+      "timestamp": "2025-07-13T03:55:56.376Z"
+    },
+    {
+      "phase": "Element Analysis",
+      "status": "success",
+      "elements": {
+        "iframe": 0,
+        "tapToPlay": 1,
+        "startSession": 0,
+        "appetizeContainer": 0,
+        "deviceScreen": 3,
+        "loadingIndicator": 0
+      },
+      "timestamp": "2025-07-13T03:56:01.477Z"
+    },
+    {
+      "phase": "Button Interaction",
+      "status": "success",
+      "buttonFound": true,
+      "timestamp": "2025-07-13T03:56:04.624Z"
+    },
+    {
+      "phase": "App Monitoring",
+      "status": "completed",
+      "timestamp": "2025-07-13T03:56:24.967Z"
+    }
+  ],
+  "consoleLogs": [],
+  "consoleErrors": [],
+  "screenshots": [
+    "test-results/manual-01-page-loaded.png",
+    "test-results/manual-02-stabilized.png",
+    "test-results/manual-03-after-click.png",
+    "test-results/manual-04-monitor-0.png",
+    "test-results/manual-04-monitor-2.png",
+    "test-results/manual-04-monitor-4.png",
+    "test-results/manual-04-monitor-6.png",
+    "test-results/manual-04-monitor-8.png",
+    "test-results/manual-05-final.png"
+  ],
+  "finalStatus": "completed",
+  "initialContentLength": 83336,
+  "endTime": "2025-07-13T03:56:25.103Z",
+  "duration": 30462
+}

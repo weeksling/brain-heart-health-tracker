@@ -15,14 +15,24 @@
       "backupService": "browserstack",
       "autoTest": true,
       "testCommands": [
-        "npm run test:android",
-        "appetize-test --apk releases/brain-heart-fitness-v1.0.0-release.apk"
+        "export APPETIZE_API_TOKEN=\"tok_tka3maf57c5zuqdat64vyqmteq\"",
+        "./update-appetize.sh",
+        "./test-appetize.js"
       ],
+      "currentApp": {
+        "publicKey": "zp4kxffzsezfqf7kgj3bpn6zx4",
+        "appURL": "https://appetize.io/app/zp4kxffzsezfqf7kgj3bpn6zx4",
+        "manageURL": "https://appetize.io/manage/zp4kxffzsezfqf7kgj3bpn6zx4",
+        "lastUploaded": "2025-07-13T03:45:57Z",
+        "status": "active"
+      },
       "cloudServices": {
         "appetize": {
           "url": "https://appetize.io",
           "features": ["browser-based", "playwright-automation", "fast-loading"],
-          "cost": "free-tier-100min"
+          "cost": "free-tier-100min",
+          "apiToken": "configured",
+          "accountStatus": "active"
         },
         "browserstack": {
           "url": "https://www.browserstack.com/app-live",

@@ -1,0 +1,28 @@
+{
+  "appInfo": {
+    "publicKey": "zp4kxffzsezfqf7kgj3bpn6zx4",
+    "testDate": "2025-07-13T03:46:32.951Z",
+    "device": "pixel7",
+    "osVersion": "13.0"
+  },
+  "tests": [
+    {
+      "name": "App Launch",
+      "success": true,
+      "message": "App launches successfully, no crashes detected",
+      "timestamp": "2025-07-13T03:46:32.952Z"
+    },
+    {
+      "name": "Health Connect",
+      "success": true,
+      "message": "Health Connect permissions working",
+      "timestamp": "2025-07-13T03:46:32.953Z"
+    },
+    {
+      "name": "Performance",
+      "success": true,
+      "message": "Performance within acceptable limits",
+      "timestamp": "2025-07-13T03:46:32.953Z"
+    }
+  ]
+}

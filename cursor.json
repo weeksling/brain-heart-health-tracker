@@ -10,17 +10,48 @@
       "templatePath": ".github/PULL_REQUEST_TEMPLATE.md",
       "requireTemplate": true
     },
+    "androidTesting": {
+      "primaryService": "appetize",
+      "backupService": "browserstack",
+      "autoTest": true,
+      "testCommands": [
+        "npm run test:android",
+        "appetize-test --apk releases/brain-heart-fitness-v1.0.0-release.apk"
+      ],
+      "cloudServices": {
+        "appetize": {
+          "url": "https://appetize.io",
+          "features": ["browser-based", "playwright-automation", "fast-loading"],
+          "cost": "free-tier-100min"
+        },
+        "browserstack": {
+          "url": "https://www.browserstack.com/app-live",
+          "features": ["real-devices", "30k-devices", "debug-tools"],
+          "cost": "free-trial-available"
+        },
+        "firebase": {
+          "url": "https://firebase.google.com/products/test-lab",
+          "features": ["google-integration", "robo-tests", "crash-reporting"],
+          "cost": "free-tier-10tests"
+        }
+      }
+    },
     "instructions": [
       "Always use the Dockerfile environment for all Android development tasks",
       "Follow the pull request template when creating PRs",
-      "Test Android apps using the available emulator and testing tools",
+      "For Android testing, use cloud services since local emulator requires KVM",
+      "Primary testing: Upload APK to Appetize.io for instant browser-based testing",
+      "Secondary testing: Use BrowserStack for comprehensive real device testing",
       "Ensure all Android builds are tested in the Docker environment",
       "Use the Android SDK and tools available in the container",
-      "Run 'avdmanager list avd' to check available Android Virtual Devices",
-      "Use 'gradlew build' for Android native builds",
-      "Use 'npm run android' for React Native builds",
-      "Always check if the app builds successfully before creating a PR",
-      "Include relevant testing information in the PR description"
+      "Execute './scripts/test-android-app.sh' to run comprehensive Android tests",
+      "Verify TypeScript compilation with 'npx tsc --noEmit' before building",
+      "Build production APKs using 'cd android && ./gradlew assembleRelease'",
+      "Upload APKs to releases/ directory after successful builds",
+      "Document any testing results in test-results/ directory",
+      "For crash debugging: Use cloud service logs and browser dev tools",
+      "Health Connect testing requires Android 8.0+ and Google Play Services",
+      "Refer to ANDROID_EMULATOR_SOLUTIONS.md for complete testing guide"
     ]
   },
   "agentCanUpdateSnapshot": true,
